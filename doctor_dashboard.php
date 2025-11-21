@@ -1,10 +1,12 @@
 <?php
 session_start();
+
 include 'config/db.php';
 include 'includes/header.php';
 
 // Access Control: Must be logged in and role must be 'doctor'
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
+    // Path to login.php is simple, as it's in the same directory
     header("Location: login.php");
     exit();
 }
@@ -20,12 +22,12 @@ $stmt = query($sql, [$user_id], "i");
 $doctor_data = $stmt->get_result()->fetch_assoc();
 
 if (!$doctor_data) {
-    // Should not happen if pre-registered correctly, but good for error handling
+   
     header("Location: logout.php"); 
     exit();
 }
 
-$_SESSION['doctor_id'] = $doctor_data['doctor_id']; // Store doctor_id in session for convenience
+$_SESSION['doctor_id'] = $doctor_data['doctor_id']; 
 $doctor_name = htmlspecialchars($doctor_data['full_name']);
 
 // Fetch upcoming appointments count
@@ -38,7 +40,7 @@ $upcoming_count = $stmt_appt->get_result()->fetch_assoc()['count'];
 
 <div class="container my-5">
     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-        <h2 class="text-success">👨‍⚕️ Welcome, Dr. <?php echo $doctor_name; ?>!</h2>
+        <h2 class="text-success">👨‍⚕️ Welcome, <?php echo $doctor_name; ?>!</h2>
         <a href="logout.php" class="btn btn-danger">Logout</a>
     </div>
 
@@ -86,4 +88,7 @@ $upcoming_count = $stmt_appt->get_result()->fetch_assoc()['count'];
     </div>
 </div>
 
-<?php include 'includes/footer.php'; ?>
+<?php 
+// --- CRITICAL PATH CORRECTION: Simple relative path ---
+include 'includes/footer.php'; 
+?>

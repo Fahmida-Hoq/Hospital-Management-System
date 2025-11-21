@@ -42,21 +42,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     }
                     break;
 
-                case 'doctor':
-                    // Fetch doctor_id for convenience
-                    $doctor_sql = "SELECT doctor_id FROM doctors WHERE user_id = ?";
-                    $doctor_stmt = query($doctor_sql, [$user['user_id']], "i");
-                    $doctor_result = $doctor_stmt->get_result()->fetch_assoc();
-                    
-                    if ($doctor_result) {
-                        $_SESSION['doctor_id'] = $doctor_result['doctor_id'];
-                        // Redirect to the new subfolder structure
-                        header("Location: doctor/dashboard.php"); 
-                        exit();
-                    } else {
-                        $message = "<div class='alert alert-danger'>Doctor profile details missing. Contact administrator.</div>";
-                    }
-                    break;
+              case 'doctor':
+    // Fetch doctor_id for convenience
+    $doctor_sql = "SELECT doctor_id FROM doctors WHERE user_id = ?";
+    $doctor_stmt = query($doctor_sql, [$user['user_id']], "i");
+    $doctor_result = $doctor_stmt->get_result()->fetch_assoc();
+    
+    if ($doctor_result) {
+        $_SESSION['doctor_id'] = $doctor_result['doctor_id'];
+        
+        // --- CRITICAL CORRECTION: Use the flat file name in the root directory ---
+        header("Location: doctor_dashboard.php"); 
+        exit();
+    } else {
+        $message = "<div class='alert alert-danger'>Doctor profile details missing. Contact administrator.</div>";
+    }
+    break;
                     
                 case 'admin':
                     // Redirect to the new subfolder structure
