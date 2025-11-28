@@ -11,7 +11,7 @@ if (!isset($_SESSION['patient_id']) || $_SESSION['role'] != 'patient') {
 
 $patient_id = $_SESSION['patient_id'];
 
-// Fetch all appointments for the patient, joining with doctor user data
+
 $sql = "SELECT 
             a.appointment_date, 
             a.appointment_time, 
@@ -36,7 +36,7 @@ $appointments = $stmt->get_result();
 <div class="container my-5">
     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
         <h2 class="text-success">Appointment History</h2>
-        <a href="patient_dashboard.php" class="btn btn-secondary">⬅️ Dashboard</a>
+        <a href="patient_dashboard.php" class="btn btn-secondary"> Dashboard</a>
     </div>
 
     <?php if ($appointments->num_rows > 0): ?>
@@ -65,7 +65,7 @@ $appointments = $stmt->get_result();
                 <tr>
                     <td><?php echo date('M d, Y', strtotime($row['appointment_date'])); ?></td>
                     <td><?php echo date('h:i A', strtotime($row['appointment_time'])); ?></td>
-                    <td>Dr. <?php echo htmlspecialchars($row['doctor_name']); ?></td>
+                    <td><?php echo htmlspecialchars($row['doctor_name']); ?></td>
                     <td><?php echo htmlspecialchars($row['specialization']); ?></td>
                     <td><span class="badge <?php echo $status_class; ?>"><?php echo ucfirst($row['status']); ?></span></td>
                     <td>

@@ -1,7 +1,8 @@
 <?php
 session_start();
-include 'config/db.php';
-include 'includes/header.php';
+// Include the database configuration and helper functions
+include 'config/db.php'; 
+include 'includes/header.php'; 
 
 $message = '';
 
@@ -9,32 +10,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'];
     $password = $_POST['password'];
 
-    $sql = "SELECT user_id, password, role FROM users WHERE email = ?";
-    // Note: The 'query' function is assumed to be defined in db.php and handles prepared statements.
+    // 1. SELECT query to get all necessary user data, including full_name
+    $sql = "SELECT user_id, full_name, password, role FROM users WHERE email = ?";
+    // The query() function is assumed to be defined in config/db.php
     $stmt = query($sql, [$email], "s");
     $result = $stmt->get_result();
     
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
         
-        // Verify password
+        // 2. Verify password
         if (password_verify($password, $user['password'])) {
-            // Set basic session variables
+            
+            // Set required basic session variables
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['email'] = $email;
+            // CRITICAL: Stores the specific user's name (e.g., "Dr. Fahmida") for dashboard display
+            $_SESSION['full_name'] = $user['full_name']; 
             
             // --- REDIRECTION LOGIC BASED ON ROLE ---
             switch ($user['role']) {
                 case 'patient':
-                    // Fetch patient_id for convenience
+                    // Fetch patient_id from the patients table (needed for appointment booking/viewing)
                     $patient_sql = "SELECT patient_id FROM patients WHERE user_id = ?";
                     $patient_stmt = query($patient_sql, [$user['user_id']], "i");
                     $patient_result = $patient_stmt->get_result()->fetch_assoc();
                     
                     if ($patient_result) {
                         $_SESSION['patient_id'] = $patient_result['patient_id'];
-                        // Assuming patient dashboard remains in the root
                         header("Location: patient_dashboard.php");
                         exit();
                     } else {
@@ -42,51 +46,50 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     }
                     break;
 
-              case 'doctor':
-    // Fetch doctor_id for convenience
-    $doctor_sql = "SELECT doctor_id FROM doctors WHERE user_id = ?";
-    $doctor_stmt = query($doctor_sql, [$user['user_id']], "i");
-    $doctor_result = $doctor_stmt->get_result()->fetch_assoc();
-    
-    if ($doctor_result) {
-        $_SESSION['doctor_id'] = $doctor_result['doctor_id'];
-        
-        // --- CRITICAL CORRECTION: Use the flat file name in the root directory ---
-        header("Location: doctor_dashboard.php"); 
-        exit();
-    } else {
-        $message = "<div class='alert alert-danger'>Doctor profile details missing. Contact administrator.</div>";
-    }
-    break;
+                case 'doctor':
+                    // Fetch doctor_id from the doctors table (needed for doctor-specific queries)
+                    $doctor_sql = "SELECT doctor_id FROM doctors WHERE user_id = ?";
+                    $doctor_stmt = query($doctor_sql, [$user['user_id']], "i");
+                    $doctor_result = $doctor_stmt->get_result()->fetch_assoc();
                     
-                case 'admin':
-                    // Redirect to the new subfolder structure
-                    header("Location: admin/dashboard.php");
-                    exit();
-                    break;
-
-                case 'receptionist':
-                    // Redirect to the new subfolder structure
-                    header("Location: receptionist/dashboard.php");
-                    exit();
-                    break;
-
-                case 'accountant':
-                    // Redirect to the new subfolder structure
-                    header("Location: accountant/dashboard.php");
-                    exit();
+                    if ($doctor_result) {
+                        $_SESSION['doctor_id'] = $doctor_result['doctor_id'];
+                        header("Location: doctor_dashboard.php"); 
+                        exit();
+                    } else {
+                        $message = "<div class='alert alert-danger'>Doctor profile details missing. Contact administrator.</div>";
+                    }
                     break;
                     
                 case 'labtech':
-                    // Redirect to the new subfolder structure
-                    header("Location: lab/dashboard.php");
+                    // Fetch labtech_id from the lab_technicians table (needed for lab tech-specific queries)
+                    $labtech_sql = "SELECT labtech_id FROM lab_technicians WHERE user_id = ?";
+                    $labtech_stmt = query($labtech_sql, [$user['user_id']], "i");
+                    $labtech_result = $labtech_stmt->get_result()->fetch_assoc();
+
+                    if ($labtech_result) {
+                        $_SESSION['labtech_id'] = $labtech_result['labtech_id'];
+                        header("Location: labtech.php"); 
+                        exit();
+                    } else {
+                         $message = "<div class='alert alert-danger'>Lab Technician profile details missing. Contact administrator.</div>";
+                    }
+                    break;
+
+                case 'admin': 
+                    header("Location: admin.php");
                     exit();
                     break;
-                
+
+                case 'receptionist': 
+                    header("Location: receptionist_dashboard.php");
+                    exit();
+                    break;
+                    
                 default:
                     $message = "<div class='alert alert-warning'>Login successful, but a dashboard for your role ({$user['role']}) is not yet configured.</div>";
             }
-            // --- END OF SWITCH STATEMENT ---
+            
 
         } else {
             $message = "<div class='alert alert-danger'>Invalid email or password.</div>";

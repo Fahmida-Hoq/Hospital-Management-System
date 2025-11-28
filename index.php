@@ -17,7 +17,7 @@ include 'includes/header.php';
 
         <div class="col-md-4 mb-4">
  <div class="card feature-card p-3 shadow-sm h-100">
- <i class="h1 text-success mb-3">📅</i>
+ <i class="h1 text-success mb-3"></i>
  <div class="card-body">
      <h5 class="card-title">Easy Appointment Scheduling</h5>
  <p class="card-text">Book your appointments with your preferred doctor in a few simple clicks.</p>
@@ -28,7 +28,7 @@ include 'includes/header.php';
         <div class="col-md-4 mb-4">
 <a href="view_doctors.php" class="text-decoration-none text-dark d-block h-100">
                 <div class="card feature-card p-3 shadow-lg h-100 border-info">
-<i class="h1 text-info mb-3">🧑‍⚕️</i>
+<i class="h1 text-info mb-3"></i>
 <div class="card-body">
 <h5 class="card-title">Check Doctor Availability</h5>
  <p class="card-text">View real-time availability and specialization of our doctors.</p>

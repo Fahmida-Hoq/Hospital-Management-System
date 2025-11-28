@@ -21,8 +21,8 @@ $doctors = $stmt_doctors->get_result();
 
 <div class="container my-5">
     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-        <h2 class="text-secondary">🩺 Specialist Doctor Directory</h2>
-        <a href="index.php" class="btn btn-outline-secondary">⬅️ Back to Home</a>
+        <h2 class="text-secondary">Specialist Doctor Directory</h2>
+        <a href="index.php" class="btn btn-outline-secondary"> Back to Home</a>
     </div>
 
     <p class="lead text-center mb-5">
@@ -35,7 +35,7 @@ $doctors = $stmt_doctors->get_result();
             <div class="col-md-6 col-lg-4 mb-4">
                 <div class="card h-100 shadow-sm border-info">
                     <div class="card-body text-center">
-                        <i class="h3 text-info d-block mb-2">🧑‍⚕️</i>
+                        <i class="h3 text-info d-block mb-2"></i>
                         <h5 class="card-title text-primary"><?php echo htmlspecialchars($row['full_name']); ?></h5>
                         <p class="card-text mb-1">
                             **Specialization:** <span class="badge bg-success"><?php echo htmlspecialchars($row['specialization']); ?></span>

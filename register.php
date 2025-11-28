@@ -25,7 +25,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         try {
             // 2. Insert into users table
-            $hashed_password = hash_password($password);
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             $user_sql = "INSERT INTO users (full_name, email, password, role) VALUES (?, ?, ?, 'patient')";
             $stmt_user = query($user_sql, [$full_name, $email, $hashed_password], "sss");
             
