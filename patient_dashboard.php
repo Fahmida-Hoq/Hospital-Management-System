@@ -13,7 +13,9 @@ $patient_name = htmlspecialchars($_SESSION['full_name'] ?? 'Patient User');
 // upcoming appointments count
 $today = date('Y-m-d');
 $appt_sql = "SELECT COUNT(*) AS count FROM appointments 
-             WHERE patient_id = ? AND appointment_date >= ?";
+             WHERE patient_id = ? AND scheduled_time >= ?"; 
+// --- END FIX ---
+
 $stmt_appt = query($appt_sql, [$patient_id, $today], "is");
 $upcoming_count = $stmt_appt->get_result()->fetch_assoc()['count'] ?? 0;
 ?>

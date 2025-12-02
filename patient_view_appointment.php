@@ -13,7 +13,7 @@ $patient_id = $_SESSION['patient_id'];
 
 
 $sql = "SELECT 
-            a.appointment_date, 
+            a.scheduled_time, 
             a.appointment_time, 
             a.status, 
             u_doc.full_name AS doctor_name, 
@@ -27,7 +27,7 @@ $sql = "SELECT
         WHERE 
             a.patient_id = ?
         ORDER BY 
-            a.appointment_date DESC, a.appointment_time DESC";
+            a.scheduled_time DESC, a.appointment_time DESC";
 
 $stmt = query($sql, [$patient_id], "i");
 $appointments = $stmt->get_result();
@@ -63,7 +63,7 @@ $appointments = $stmt->get_result();
                     };
                 ?>
                 <tr>
-                    <td><?php echo date('M d, Y', strtotime($row['appointment_date'])); ?></td>
+                    <td><?php echo date('M d, Y', strtotime($row['scheduled_time'])); ?></td>
                     <td><?php echo date('h:i A', strtotime($row['appointment_time'])); ?></td>
                     <td><?php echo htmlspecialchars($row['doctor_name']); ?></td>
                     <td><?php echo htmlspecialchars($row['specialization']); ?></td>

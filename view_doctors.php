@@ -1,59 +1,75 @@
-<?php 
+<?php
 session_start();
 include 'config/db.php';
-include 'includes/header.php'; 
+include 'includes/header.php';
 
-// --- PHP Logic to Fetch Doctors ---
-$sql_doctors = "SELECT 
-                    u.full_name, 
-                    d.specialization, 
-                    d.department,
-                    d.doctor_id 
-                FROM users u
-                JOIN doctors d ON u.user_id = d.user_id
-                WHERE u.role = 'doctor' 
-                ORDER BY d.department, u.full_name";
+$department_filter = '';
+$params = [];
+$types = '';
+$page_title = "Specialist Doctor Directory";
+$filter_message = '';
 
-$stmt_doctors = query($sql_doctors);
-$doctors = $stmt_doctors->get_result();
+if (isset($_GET['department']) && !empty($_GET['department'])) {
+    $department_filter = "WHERE d.department = ?";
+    $params[] = $_GET['department'];
+    $types = 's';
+    $page_title = htmlspecialchars($_GET['department']) . " Specialists";
+    $filter_message = "<p class='lead'>Showing doctors in the **" . htmlspecialchars($_GET['department']) . "** department.</p>";
+} else {
+    $filter_message = "<p class='lead'>Browse our full list of specialists below.</p>";
+}
 
+
+// Core SQL query using prepared statement for safety
+$sql = "SELECT 
+            u.full_name, 
+            d.specialization, 
+            d.department, 
+            d.doctor_id 
+        FROM 
+            doctors d
+        JOIN 
+            users u ON d.user_id = u.user_id
+        {$department_filter}
+        ORDER BY 
+            u.full_name";
+
+$stmt = query($sql, $params, $types);
+$doctors = $stmt->get_result();
 ?>
 
 <div class="container my-5">
     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-        <h2 class="text-secondary">Specialist Doctor Directory</h2>
-        <a href="index.php" class="btn btn-outline-secondary"> Back to Home</a>
+        <h2 class="text-primary"><?php echo $page_title; ?></h2>
+        <a href="index.php" class="btn btn-outline-secondary">Back to Home</a>
     </div>
-
-    <p class="lead text-center mb-5">
-        Browse our list of doctors. Click 'Check Availability & Book' to schedule an appointment.
-    </p>
     
-    <div class="row">
+    <?php echo $filter_message; ?>
+    <p>Click 'Check Availability & Book' to schedule an appointment.</p>
+
+    <div class="row row-cols-1 row-cols-md-3 g-4 mt-4">
         <?php if ($doctors->num_rows > 0): ?>
-            <?php while($row = $doctors->fetch_assoc()): ?>
-            <div class="col-md-6 col-lg-4 mb-4">
-                <div class="card h-100 shadow-sm border-info">
-                    <div class="card-body text-center">
-                        <i class="h3 text-info d-block mb-2"></i>
-                        <h5 class="card-title text-primary"><?php echo htmlspecialchars($row['full_name']); ?></h5>
-                        <p class="card-text mb-1">
-                            **Specialization:** <span class="badge bg-success"><?php echo htmlspecialchars($row['specialization']); ?></span>
-                        </p>
-                        <p class="card-text text-muted mb-3">
-                            **Department:** <?php echo htmlspecialchars($row['department']); ?>
+            <?php while($doctor = $doctors->fetch_assoc()): ?>
+            <div class="col">
+                <div class="card h-100 shadow-sm border-0 text-center">
+                    <div class="card-body">
+                        <i class="fas fa-user-md fa-3x text-info mb-3"></i>
+                        <h5 class="card-title text-danger fw-bold"><?php echo htmlspecialchars($doctor['full_name']); ?></h5>
+                        
+                        <p class="card-text">
+                            **Specialization:** <span class="badge bg-success"><?php echo htmlspecialchars($doctor['specialization']); ?></span><br>
+                            **Department:** <span class="badge bg-primary"><?php echo htmlspecialchars($doctor['department']); ?></span>
                         </p>
                         
-                        <a href="patient_appointment.php?doctor_id=<?php echo $row['doctor_id']; ?>" class="btn btn-success mt-2">
-                            Check Availability & Book
-                        </a>
+                        <a href="book_appointment.php?doctor_id=<?php echo $doctor['doctor_id']; ?>" 
+                           class="btn btn-success mt-2">Check Availability & Book</a>
                     </div>
                 </div>
             </div>
             <?php endwhile; ?>
         <?php else: ?>
             <div class="col-12">
-                <div class="alert alert-warning text-center">No doctor profiles found in the system. Please contact the administrator.</div>
+                <div class="alert alert-warning">No doctors found matching the criteria.</div>
             </div>
         <?php endif; ?>
     </div>

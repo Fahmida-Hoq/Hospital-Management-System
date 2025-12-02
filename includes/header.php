@@ -29,14 +29,14 @@
             box-shadow: 0 10px 20px rgba(0,0,0,.15);
         }
         body {
-            background-color: #f8f9fa;
+            background-color: #c6cecfff;
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+    <nav class="navbar navbar-expand-lg navbar-light bg-plum shadow-sm">
         <div class="container">
-            <a class="navbar-brand" href="index.php">🏥 HMS</a>
+            <a class="navbar-brand" href="index.php">HMS</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>

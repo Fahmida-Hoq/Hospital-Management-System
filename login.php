@@ -1,6 +1,5 @@
 <?php
 session_start();
-// Include the database configuration and helper functions
 include 'config/db.php'; 
 include 'includes/header.php'; 
 
@@ -9,30 +8,23 @@ $message = '';
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'];
     $password = $_POST['password'];
-
-    // 1. SELECT query to get all necessary user data, including full_name
     $sql = "SELECT user_id, full_name, password, role FROM users WHERE email = ?";
-    // The query() function is assumed to be defined in config/db.php
     $stmt = query($sql, [$email], "s");
     $result = $stmt->get_result();
     
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
         
-        // 2. Verify password
+        //  Verify password
         if (password_verify($password, $user['password'])) {
-            
-            // Set required basic session variables
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['email'] = $email;
-            // CRITICAL: Stores the specific user's name (e.g., "Dr. Fahmida") for dashboard display
             $_SESSION['full_name'] = $user['full_name']; 
             
             // --- REDIRECTION LOGIC BASED ON ROLE ---
             switch ($user['role']) {
                 case 'patient':
-                    // Fetch patient_id from the patients table (needed for appointment booking/viewing)
                     $patient_sql = "SELECT patient_id FROM patients WHERE user_id = ?";
                     $patient_stmt = query($patient_sql, [$user['user_id']], "i");
                     $patient_result = $patient_stmt->get_result()->fetch_assoc();

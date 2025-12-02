@@ -1,59 +1,71 @@
-<?php 
-session_start();
+<?php
 include 'config/db.php';
 include 'includes/header.php'; 
+
+// Fetch unique hospital departments
+$dept_sql = "SELECT DISTINCT department FROM doctors ORDER BY department ASC";
+$dept_result = query($dept_sql)->get_result();
+$departments = $dept_result->fetch_all(MYSQLI_ASSOC);
 ?>
 
-<header class="hero-section">
-<div class="container">
- <h1>Your Health, Our Priority</h1>
-<p class="lead">Seamlessly manage appointments, check doctor availability, and view your health records.</p>
-</div>
-</header>
-
-<section class="container my-5">
- <h2 class="text-center mb-4 text-primary">Key Features</h2>
- <div class="row text-center">
-
-        <div class="col-md-4 mb-4">
- <div class="card feature-card p-3 shadow-sm h-100">
- <i class="h1 text-success mb-3"></i>
- <div class="card-body">
-     <h5 class="card-title">Easy Appointment Scheduling</h5>
- <p class="card-text">Book your appointments with your preferred doctor in a few simple clicks.</p>
- </div>
- </div>
- </div>
-        
-        <div class="col-md-4 mb-4">
-<a href="view_doctors.php" class="text-decoration-none text-dark d-block h-100">
-                <div class="card feature-card p-3 shadow-lg h-100 border-info">
-<i class="h1 text-info mb-3"></i>
-<div class="card-body">
-<h5 class="card-title">Check Doctor Availability</h5>
- <p class="card-text">View real-time availability and specialization of our doctors.</p>
- </div>
-</div>
+<!-- HERO SECTION -->
+<div class="container my-5">
+    <div class="p-5 mb-4 bg-light rounded-4 shadow-sm border">
+        <div class="container-fluid py-5">
+            <h1 class="display-5 fw-bold text-primary">Welcome to Our Hospital</h1>
+            <p class="col-md-8 fs-4 text-muted">
+                Your health matters. Explore departments and check doctor availability anytime.
+            </p>
+            <a href="#departments" class="btn btn-primary btn-lg mt-3 px-4">
+                Explore Departments
             </a>
-</div>
-        
-   <div class="col-md-4 mb-4">
-<div class="card feature-card p-3 shadow-sm h-100">
- <i class="h1 text-warning mb-3"></i>
- <div class="card-body">
- <h5 class="card-title">Secure Patient Access</h5>
- <p class="card-text">Log in to view your detailed appointment history and personal health details.</p>
- </div>
- </div>
- </div>
-</div>
-</section>
+        </div>
+    </div>
 
-<section class="container my-5 text-center">
-    <h3 class="text-dark mb-4">Ready to book your appointment?</h3>
-    <p class="lead">Click on the "Check Doctor Availability" feature above to start, or log in to manage your profile.</p>
-    <a href="login.php" class="btn btn-lg btn-danger me-3">Login</a>
-    <a href="register.php" class="btn btn-lg btn-secondary">Register</a>
-</section>
+    <!-- FEATURE: HOSPITAL DEPARTMENTS -->
+    <h2 class="mb-4 text-center fw-bold text-secondary" id="departments">
+        Hospital Departments
+    </h2>
+
+    <p class="text-center text-muted mb-4">
+        Choose a department to view available doctors and specialties.
+    </p>
+
+    <div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
+
+        <?php if (!empty($departments)): ?>
+            <?php foreach ($departments as $department_row): 
+                $dept_name = htmlspecialchars($department_row['department']);
+            ?>
+            <div class="col">
+                <div class="card h-100 shadow-sm border-0 rounded-4">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary fw-bold">
+                            <?php echo $dept_name; ?>
+                        </h5>
+                        <p class="card-text text-muted">
+                            Explore doctors specialized in <?php echo $dept_name; ?>.
+                        </p>
+                        <a 
+                            href="view_doctors.php?department=<?php echo urlencode($dept_name); ?>" 
+                            class="btn btn-outline-primary btn-sm mt-2"
+                        >
+                            View Doctors
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+
+        <?php else: ?>
+            <div class="col-12">
+                <div class="alert alert-warning text-center">
+                    No hospital departments found.
+                </div>
+            </div>
+        <?php endif; ?>
+
+    </div>
+</div>
 
 <?php include 'includes/footer.php'; ?>

@@ -13,12 +13,11 @@ $message = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $doctor_id = $_POST['doctor_id'];
-    $date = $_POST['appointment_date'];
+    $date = $_POST['scheduled_time'];
     $time = $_POST['appointment_time'];
     
-    // Simple validation (can be more robust)
     if (!empty($doctor_id) && !empty($date) && !empty($time)) {
-        $sql = "INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, status) VALUES (?, ?, ?, ?, 'pending')";
+        $sql = "INSERT INTO appointments (patient_id, doctor_id, scheduled_time, appointment_time, status) VALUES (?, ?, ?, ?, 'pending')";
         $stmt = query($sql, [$patient_id, $doctor_id, $date, $time], "iiss");
         
         if ($stmt->affected_rows > 0) {
@@ -60,8 +59,8 @@ include 'includes/header.php';
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="appointment_date" class="form-label">Date</label>
-                            <input type="date" class="form-control" id="appointment_date" name="appointment_date" min="<?php echo date('Y-m-d'); ?>" required>
+                            <label for="scheduled_time" class="form-label">Date</label>
+                            <input type="date" class="form-control" id="scheduled_time" name="scheduled_time" min="<?php echo date('Y-m-d'); ?>" required>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="appointment_time" class="form-label">Time</label>

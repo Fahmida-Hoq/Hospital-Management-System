@@ -10,9 +10,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'labtech') {
 }
 
 $labtech_name = $_SESSION['full_name'] ?? 'Lab Technician';
-// 1. New Test Requests 
+//  New Test Requests 
 $pending_tests = query("SELECT COUNT(test_id) FROM lab_tests WHERE status = 'pending'")->get_result()->fetch_row()[0] ?? 0;
-// 2. Tests Currently in Progress
+// Tests Currently in Progress
 $processing_tests = query("SELECT COUNT(test_id) FROM lab_tests WHERE status = 'processing'")->get_result()->fetch_row()[0] ?? 0;
 ?>
 
