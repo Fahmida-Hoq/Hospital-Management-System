@@ -16,9 +16,9 @@ $departments = $dept_result->fetch_all(MYSQLI_ASSOC);
             <p class="col-md-8 fs-4 text-muted">
                 Your health matters. Explore departments and check doctor availability anytime.
             </p>
-            <a href="#departments" class="btn btn-primary btn-lg mt-3 px-4">
+            <!--<a href="#departments" class="btn btn-primary btn-lg mt-3 px-4">
                 Explore Departments
-            </a>
+            </a>-->
         </div>
     </div>
 

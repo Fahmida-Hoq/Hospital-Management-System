@@ -61,7 +61,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     if ($labtech_result) {
                         $_SESSION['labtech_id'] = $labtech_result['labtech_id'];
-                        header("Location: labtech.php"); 
+                        header("Location: lab_dashboard.php"); 
                         exit();
                     } else {
                          $message = "<div class='alert alert-danger'>Lab Technician profile details missing. Contact administrator.</div>";

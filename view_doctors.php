@@ -14,13 +14,10 @@ if (isset($_GET['department']) && !empty($_GET['department'])) {
     $params[] = $_GET['department'];
     $types = 's';
     $page_title = htmlspecialchars($_GET['department']) . " Specialists";
-    $filter_message = "<p class='lead'>Showing doctors in the **" . htmlspecialchars($_GET['department']) . "** department.</p>";
+   // $filter_message = "<p class='lead'>Showing doctors in the **" . htmlspecialchars($_GET['department']) . "** department.</p>";
 } else {
     $filter_message = "<p class='lead'>Browse our full list of specialists below.</p>";
 }
-
-
-// Core SQL query using prepared statement for safety
 $sql = "SELECT 
             u.full_name, 
             d.specialization, 
@@ -45,8 +42,6 @@ $doctors = $stmt->get_result();
     </div>
     
     <?php echo $filter_message; ?>
-    <p>Click 'Check Availability & Book' to schedule an appointment.</p>
-
     <div class="row row-cols-1 row-cols-md-3 g-4 mt-4">
         <?php if ($doctors->num_rows > 0): ?>
             <?php while($doctor = $doctors->fetch_assoc()): ?>

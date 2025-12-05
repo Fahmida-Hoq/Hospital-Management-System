@@ -1,183 +1,270 @@
 <?php
+// doctor_view_patient.php
 session_start();
 include 'config/db.php';
 include 'includes/header.php';
 
-// Access Control
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'doctor') {
     header("Location: login.php");
     exit();
 }
 
-$message = '';
-$patient_id = isset($_GET['patient_id']) ? (int)$_GET['patient_id'] : 0;
 $doctor_user_id = (int)$_SESSION['user_id'];
 
-// fetch doctor_id
-$doctor_row = query("SELECT doctor_id FROM doctors WHERE user_id = ?", [$doctor_user_id], "i")->get_result()->fetch_assoc();
-$doctor_id = isset($doctor_row['doctor_id']) ? (int)$doctor_row['doctor_id'] : 0;
+// get doctor_id
+$stmt = $conn->prepare("SELECT doctor_id FROM doctors WHERE user_id = ?");
+$stmt->bind_param("i", $doctor_user_id);
+$stmt->execute();
+$res = $stmt->get_result()->fetch_assoc();
+$doctor_id = (int)($res['doctor_id'] ?? 0);
+$stmt->close();
 
+$patient_id = (int)($_GET['patient_id'] ?? 0);
 if ($patient_id <= 0) {
-    $message = "<div class='alert alert-danger'>Invalid Patient ID.</div>";
+    echo "<div class='container my-5'><div class='alert alert-danger'>Invalid patient ID.</div></div>";
+    include 'includes/footer.php';
+    exit();
 }
 
-// Handle admission suggestion POST
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['action'] === 'suggest_admission') {
-    $suggested_ward_type = trim($_POST['suggested_ward_type'] ?? '');
-    $suggested_department = trim($_POST['suggested_department'] ?? '');
-    $admission_reason_doc = trim($_POST['admission_reason_doc'] ?? '');
+$errors = [];
+$success = '';
 
-    // Basic validation
-    if ($patient_id <= 0 || $doctor_id <= 0) {
-        $message = "<div class='alert alert-danger'>Invalid operation.</div>";
-    } elseif ($suggested_ward_type === '' || $admission_reason_doc === '' || $suggested_department === '') {
-        $message = "<div class='alert alert-warning'>Please complete all fields before submitting.</div>";
-    } else {
-        // Check for existing pending request
-        $check_sql = "SELECT request_id FROM admission_requests WHERE patient_id = ? AND request_status = 'Pending Reception'";
-        $check_stmt = query($check_sql, [$patient_id], "i");
-        $has_pending = ($check_stmt->get_result()->num_rows > 0);
-
-        if ($has_pending) {
-            $message = "<div class='alert alert-warning'>An admission request for this patient is already pending reception review.</div>";
-        } else {
-            $insert_sql = "INSERT INTO admission_requests (patient_id, doctor_id, suggested_ward, suggested_department, doctor_reason, request_status)
-                           VALUES (?, ?, ?, ?, ?, 'Pending Reception')";
-            $insert_stmt = query($insert_sql, [$patient_id, $doctor_id, $suggested_ward_type, $suggested_department, $admission_reason_doc], "iisss");
-
-            if ($insert_stmt && $insert_stmt->affected_rows > 0) {
-                // Optionally update the patients table to record suggested fields
-                query("UPDATE patients SET suggested_ward = ?, suggested_department = ?, admission_reason = ? WHERE patient_id = ?", [$suggested_ward_type, $suggested_department, $admission_reason_doc, $patient_id], "sssi");
-
-                $message = "<div class='alert alert-success'>Admission suggestion submitted successfully to Reception for review.</div>";
-            } else {
-                $message = "<div class='alert alert-danger'>Failed to submit admission suggestion. Database error.</div>";
-            }
-        }
+// 1) Assign lab test
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_lab'])) {
+    $test_name = trim($_POST['test_name'] ?? '');
+    $test_desc = trim($_POST['test_description'] ?? '');
+    if ($test_name === '') $errors[] = "Test name required.";
+    else {
+        $ins = $conn->prepare("INSERT INTO lab_tests (patient_id, doctor_id, test_name, test_description, status, date_requested, doctor_notified) VALUES (?, ?, ?, ?, 'pending', NOW(), 0)");
+        if ($ins) {
+            $ins->bind_param("iiss", $patient_id, $doctor_id, $test_name, $test_desc);
+            if ($ins->execute()) $success = "Lab test assigned.";
+            else $errors[] = "Execute lab insert error: " . $ins->error;
+            $ins->close();
+        } else $errors[] = "Prepare error: " . $conn->error;
     }
 }
 
+// 2) Prescribe medicine
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prescribe'])) {
+    $medicine = trim($_POST['medicine'] ?? '');
+    $notes = trim($_POST['notes'] ?? '');
+    $ins = $conn->prepare("INSERT INTO prescriptions (patient_id, doctor_id, medicine, notes, date_given) VALUES (?, ?, ?, ?, NOW())");
+    if ($ins) {
+        $ins->bind_param("iiss", $patient_id, $doctor_id, $medicine, $notes);
+        if ($ins->execute()) $success = "Prescription saved.";
+        else $errors[] = "Execute prescription error: " . $ins->error;
+        $ins->close();
+    } else $errors[] = "Prepare error: " . $conn->error;
+}
+
+// 3) Suggest admission (doctor suggests to receptionist)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['suggest_admission'])) {
+    $reason = trim($_POST['admission_reason'] ?? '');
+    $suggested_dept = trim($_POST['suggested_department'] ?? '');
+    $suggested_ward = trim($_POST['suggested_ward'] ?? '');
+    if ($reason === '') $errors[] = "Admission reason required.";
+    else {
+        $ins = $conn->prepare("INSERT INTO admission_requests (patient_id, doctor_id, suggested_ward, suggested_department, doctor_reason, request_status, request_date) VALUES (?, ?, ?, ?, ?, 'Pending Reception', NOW())");
+        if ($ins) {
+            $ins->bind_param("iisss", $patient_id, $doctor_id, $suggested_ward, $suggested_dept, $reason);
+            if ($ins->execute()) {
+                // update patient admission reason
+                $u = $conn->prepare("UPDATE patients SET admission_reason = ? WHERE patient_id = ?");
+                if ($u) {
+                    $u->bind_param("si", $reason, $patient_id);
+                    $u->execute();
+                    $u->close();
+                }
+                $success = "Admission suggestion sent to Reception.";
+            } else $errors[] = "Execute admission request error: " . $ins->error;
+            $ins->close();
+        } else $errors[] = "Prepare error: " . $conn->error;
+    }
+}
+
+// 4) Discharge (only if patient is Outdoor or doctor chooses)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['discharge'])) {
+    $notes = trim($_POST['discharge_notes'] ?? '');
+    $u = $conn->prepare("UPDATE patients SET status = 'Discharged' WHERE patient_id = ?");
+    if ($u) {
+        $u->bind_param("i", $patient_id);
+        if ($u->execute()) {
+            // log
+            $log = $conn->prepare("INSERT INTO admissions_log (patient_id, action_by, action_type, note) VALUES (?, ?, 'discharge', ?)");
+            if ($log) {
+                $note = $notes ?: 'Discharged by doctor';
+                $log->bind_param("iis", $patient_id, $_SESSION['user_id'], $note);
+                $log->execute();
+                $log->close();
+            }
+            $success = "Patient discharged.";
+        } else $errors[] = "Execute discharge error: " . $u->error;
+        $u->close();
+    } else $errors[] = "Prepare error: " . $conn->error;
+}
+
 // Fetch patient details
-$patient_sql = "SELECT u.full_name, u.email, u.phone AS user_phone, p.age, p.gender, p.address, p.status AS patient_status, p.room, p.bed
-                FROM patients p
-                JOIN users u ON p.user_id = u.user_id
-                WHERE p.patient_id = ?";
-$patient_stmt = query($patient_sql, [$patient_id], "i");
-$patient = $patient_stmt->get_result()->fetch_assoc();
+$stmt = $conn->prepare("SELECT p.*, COALESCE(u.full_name, p.name) AS display_name, u.email FROM patients p LEFT JOIN users u ON p.user_id = u.user_id WHERE p.patient_id = ?");
+$stmt->bind_param("i", $patient_id);
+$stmt->execute();
+$patient = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-// Fetch latest admission request for display
-$request_row = query("SELECT * FROM admission_requests WHERE patient_id = ? ORDER BY request_date DESC LIMIT 1", [$patient_id], "i")->get_result()->fetch_assoc();
-$request_status = $request_row['request_status'] ?? 'None';
+// fetch lab tests for this patient
+$tstmt = $conn->prepare("SELECT * FROM lab_tests WHERE patient_id = ? ORDER BY date_requested DESC");
+$tstmt->bind_param("i", $patient_id);
+$tstmt->execute();
+$lab_tests = $tstmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$tstmt->close();
 
+// fetch prescriptions
+$pstmt = $conn->prepare("SELECT * FROM prescriptions WHERE patient_id = ? ORDER BY date_given DESC");
+$pstmt->bind_param("i", $patient_id);
+$pstmt->execute();
+$prescriptions = $pstmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$pstmt->close();
+
+// Doctor notifications: new completed tests where doctor_notified = 0
+$notify_list = [];
+$nstmt = $conn->prepare("SELECT test_id, test_name, report_file FROM lab_tests WHERE doctor_id = ? AND status = 'completed' AND doctor_notified = 0");
+$nstmt->bind_param("i", $doctor_id);
+$nstmt->execute();
+$notify_list = $nstmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$nstmt->close();
+
+// After fetching, mark them as notified (so doctor sees them once)
+if (!empty($notify_list)) {
+    $ids = array_column($notify_list, 'test_id');
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $types = str_repeat('i', count($ids));
+    $sql = "UPDATE lab_tests SET doctor_notified = 1 WHERE test_id IN ($placeholders)";
+    $up = $conn->prepare($sql);
+    if ($up) {
+        // bind params dynamically
+        $up->bind_param($types, ...$ids);
+        $up->execute();
+        $up->close();
+    }
+}
 ?>
 
 <div class="container my-5">
-    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-        <h2 class="text-success">🩺 Patient Chart: <?php echo htmlspecialchars($patient['full_name'] ?? 'N/A'); ?></h2>
-        <a href="doctor_dashboard.php" class="btn btn-secondary"> Back to Dashboard</a>
+    <div class="d-flex justify-content-between align-items-center">
+        <h3>Patient: <?= htmlspecialchars($patient['display_name'] ?? 'N/A') ?></h3>
+        <a href="doctor_dashboard.php" class="btn btn-secondary">Back</a>
     </div>
 
-    <?php echo $message; ?>
+    <?php if ($success) echo "<div class='alert alert-success mt-3'>".htmlspecialchars($success)."</div>"; ?>
+    <?php if (!empty($errors)) { echo "<div class='alert alert-danger mt-3'>"; foreach ($errors as $e) echo "<div>".htmlspecialchars($e)."</div>"; echo "</div>"; } ?>
 
-    <?php if ($patient): ?>
-    <div class="row">
+    <?php if (!empty($notify_list)): ?>
+        <div class="alert alert-info mt-3">
+            <strong>New lab reports ready:</strong>
+            <ul>
+                <?php foreach ($notify_list as $n): ?>
+                    <li><?= htmlspecialchars($n['test_name']) ?> — <a href="<?= htmlspecialchars($n['report_file']) ?>" target="_blank">View report</a></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
+
+    <div class="row mt-3">
         <div class="col-md-7">
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-success text-white">
-                    Patient Information
-                </div>
-                <div class="card-body">
-                    <p><strong>Status:</strong> <span class="badge bg-<?php 
-                        $status_class = match($patient['patient_status'] ?? 'Pending') {
-                            'Admitted' => 'danger',
-                            'Outdoor' => 'primary',
-                            'Pending' => 'secondary',
-                            default => 'secondary',
-                        };
-                        echo $status_class;
-                    ?>"><?php echo htmlspecialchars($patient['patient_status'] ?? 'Pending'); ?></span></p>
+            <div class="card p-3 mb-3">
+                <h5>Patient Info</h5>
+                <p><strong>Type:</strong> <?= htmlspecialchars($patient['patient_type'] ?? '') ?></p>
+                <p><strong>Status:</strong> <?= htmlspecialchars($patient['status'] ?? '') ?></p>
+                <p><strong>Age:</strong> <?= htmlspecialchars($patient['age'] ?? '') ?> — <strong>Phone:</strong> <?= htmlspecialchars($patient['phone'] ?? '') ?></p>
+                <p><strong>Ward/Cabin/Bed:</strong> <?= htmlspecialchars($patient['ward'] ?? '') ?> / <?= htmlspecialchars($patient['cabin'] ?? '') ?> / <?= htmlspecialchars($patient['bed'] ?? '') ?></p>
+                <p><strong>Admission Reason:</strong> <?= nl2br(htmlspecialchars($patient['admission_reason'] ?? '')) ?></p>
+            </div>
 
-                    <p><strong>Age:</strong> <?php echo htmlspecialchars($patient['age']); ?></p>
-                    <p><strong>Gender:</strong> <?php echo htmlspecialchars($patient['gender']); ?></p>
-                    <p><strong>Contact:</strong> <?php echo htmlspecialchars($patient['user_phone']); ?> (<?php echo htmlspecialchars($patient['email']); ?>)</p>
-                    <p><strong>Address:</strong> <?php echo htmlspecialchars($patient['address']); ?></p>
+            <div class="card p-3 mb-3">
+                <h5>Lab Tests</h5>
+                <?php if (empty($lab_tests)): ?>
+                    <div class="text-muted">No lab tests assigned.</div>
+                <?php else: ?>
+                    <?php foreach ($lab_tests as $t): ?>
+                        <div class="border p-2 mb-2">
+                            <strong><?= htmlspecialchars($t['test_name']) ?></strong><br>
+                            <small class="text-muted">Status: <?= htmlspecialchars($t['status']) ?> — Requested: <?= htmlspecialchars($t['date_requested']) ?></small>
+                            <?php if (!empty($t['report_file'])): ?>
+                                <div class="mt-2"><a href="<?= htmlspecialchars($t['report_file']) ?>" target="_blank">View Report</a></div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
 
-                    <?php if (!empty($patient['room']) || !empty($patient['bed'])): ?>
-                        <p><strong>Room/Bed:</strong> <?php echo htmlspecialchars($patient['room'] ?? ''); ?> / <?php echo htmlspecialchars($patient['bed'] ?? ''); ?></p>
-                    <?php endif; ?>
-                </div>
+                <hr>
+                <h6>Assign New Lab Test</h6>
+                <form method="post">
+                    <div class="mb-2"><input name="test_name" class="form-control" placeholder="Test name (e.g. CBC, X-Ray)" required></div>
+                    <div class="mb-2"><textarea name="test_description" class="form-control" placeholder="Notes for lab technician"></textarea></div>
+                    <button name="assign_lab" class="btn btn-primary">Assign Lab Test</button>
+                </form>
+            </div>
+
+            <div class="card p-3 mb-3">
+                <h5>Prescriptions</h5>
+                <?php if (empty($prescriptions)) echo "<div class='text-muted'>No prescriptions yet.</div>"; ?>
+                <?php foreach ($prescriptions as $pr): ?>
+                    <div class="border p-2 mb-2">
+                        <div><strong>Given:</strong> <?= htmlspecialchars($pr['date_given']) ?></div>
+                        <div><?= nl2br(htmlspecialchars($pr['medicine'])) ?></div>
+                        <div class="small text-muted"><?= nl2br(htmlspecialchars($pr['notes'])) ?></div>
+                    </div>
+                <?php endforeach; ?>
+
+                <hr>
+                <h6>New Prescription</h6>
+                <form method="post">
+                    <div class="mb-2"><textarea name="medicine" class="form-control" placeholder="Medicine details"></textarea></div>
+                    <div class="mb-2"><textarea name="notes" class="form-control" placeholder="Notes"></textarea></div>
+                    <button name="prescribe" class="btn btn-success">Save Prescription</button>
+                </form>
             </div>
         </div>
 
         <div class="col-md-5">
-            <div class="card shadow-lg bg-light">
-                <div class="card-header bg-dark text-white">Admission & Treatment Actions</div>
-                <div class="card-body">
-                    <?php if (($patient['patient_status'] ?? '') === 'Admitted'): ?>
-                        <div class="alert alert-danger text-center">This patient is currently <strong>ADMITTED</strong>.</div>
-
-                    <?php elseif ($request_status === 'Pending Reception'): ?>
-                        <div class="alert alert-warning text-center">Admission request is <strong>PENDING RECEPTION</strong> review.</div>
-                        <p class="small text-muted">You can view the request details in Reception's admission queue.</p>
-
-                    <?php else: ?>
-                        <h5>Suggest Patient Admission</h5>
-                        <form method="POST" action="doctor_view_patient.php?patient_id=<?php echo $patient_id; ?>">
-                            <input type="hidden" name="action" value="suggest_admission">
-
-                            <div class="mb-3">
-                                <label for="admission_reason_doc" class="form-label">Medical Reason for Admission</label>
-                                <textarea class="form-control" id="admission_reason_doc" name="admission_reason_doc" rows="2" required></textarea>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="suggested_department" class="form-label">Suggested Medical Department</label>
-                                <select class="form-select" id="suggested_department" name="suggested_department" required>
-                                    <option value="">Select Department</option>
-                                    <option value="Cardiology">Cardiology</option>
-                                    <option value="Neurology">Neurology</option>
-                                    <option value="Pathology">Pathology</option>
-                                    <option value="General Medicine">General Medicine</option>
-                                    <option value="Surgery">Surgery</option>
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="suggested_ward_type" class="form-label">Ward / Cabin Type</label>
-                                <select class="form-select" id="suggested_ward_type" name="suggested_ward_type" required>
-                                    <option value="">Select Accommodation Type</option>
-                                    <option value="General Ward">General Ward</option>
-                                    <option value="Semi-Private Cabin">Semi-Private Cabin</option>
-                                    <option value="Private Cabin">Private Cabin</option>
-                                    <option value="ICU">ICU</option>
-                                </select>
-                            </div>
-
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="fas fa-bed me-2"></i> Submit Admission Request
-                            </button>
-                        </form>
-                    <?php endif; ?>
-                </div>
+            <div class="card p-3 mb-3">
+                <h5>Admission</h5>
+                <form method="post">
+                    <div class="mb-2"><textarea name="admission_reason" class="form-control" placeholder="Reason for admission (required)"></textarea></div>
+                    <div class="mb-2">
+                        <select name="suggested_department" class="form-select mb-2">
+                            <option value="">Select Department</option>
+                            <option>Cardiology</option>
+                            <option>Neurology</option>
+                            <option>Pathology</option>
+                            <option>General Medicine</option>
+                            <option>Surgery</option>
+                        </select>
+                        <select name="suggested_ward" class="form-select">
+                            <option value="">Select Ward Type</option>
+                            <option>General Ward</option>
+                            <option>Semi-Private Cabin</option>
+                            <option>Private Cabin</option>
+                            <option>ICU</option>
+                        </select>
+                    </div>
+                    <button name="suggest_admission" class="btn btn-warning w-100">Send Admission Request</button>
+                </form>
             </div>
 
-            <?php if ($request_row): ?>
-                <div class="card mt-3">
-                    <div class="card-header">Latest Admission Request</div>
-                    <div class="card-body">
-                        <p><strong>Status:</strong> <?php echo htmlspecialchars($request_row['request_status']); ?></p>
-                        <p><strong>Suggested Department:</strong> <?php echo htmlspecialchars($request_row['suggested_department']); ?></p>
-                        <p><strong>Suggested Ward:</strong> <?php echo htmlspecialchars($request_row['suggested_ward']); ?></p>
-                        <p><strong>Doctor Reason:</strong> <?php echo nl2br(htmlspecialchars($request_row['doctor_reason'])); ?></p>
-                        <p class="small text-muted">Requested on: <?php echo date('Y-m-d H:i', strtotime($request_row['request_date'])); ?></p>
-                    </div>
-                </div>
-            <?php endif; ?>
+            <div class="card p-3">
+                <h5>Discharge</h5>
+                <?php if ($patient['patient_type'] === 'Outdoor'): ?>
+                    <form method="post">
+                        <div class="mb-2"><textarea name="discharge_notes" class="form-control" placeholder="Discharge notes (optional)"></textarea></div>
+                        <button name="discharge" class="btn btn-danger w-100">Discharge Patient</button>
+                    </form>
+                <?php else: ?>
+                    <div class="text-muted">Indoor patients should be discharged by Reception after finalization.</div>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
-    <?php else: ?>
-        <div class="alert alert-warning">Patient record not found.</div>
-    <?php endif; ?>
 </div>
 
 <?php include 'includes/footer.php'; ?>
