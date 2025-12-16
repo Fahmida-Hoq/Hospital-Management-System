@@ -60,7 +60,7 @@ $upcoming_count = $stmt_appt->get_result()->fetch_assoc()['count'] ?? 0;
                     <a href="patient_records.php" class="btn btn-warning">View Records</a>
                 </div>
             </div>
-        </div>
+      
         
     </div>
 </div>

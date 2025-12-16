@@ -133,11 +133,22 @@ $total_patients = $res_patients->get_result()->fetch_row()[0] ?? 0;
                 2. Manage Admissions (Ward/Bed/Cabin)
             </a>
         </div>
+        <div class="col-md-4">
+<a href="receptionist_admitted_patients.php" class="btn btn-info w-100 py-3 shadow-sm">
+    View Admitted Patients
+</a>
+</div>
 
         <div class="col-md-4">
-            <a href="receptionist_manage_billing.php" class="btn btn-warning w-100 py-3 shadow-sm">
-                3. Billing & Payments
-            </a>
+            <a href="receptionist_manage_billing.php" class="btn btn-warning w-100">
+    Billing & Payments
+</a>
+</div>
+<div class="col-md-4">
+<a href="receptionist_discharge_patient.php" class="btn btn-danger w-100 mt-2">
+    Discharge Patient
+</a>
+</div>
         </div>
 
     </div>

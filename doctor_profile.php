@@ -3,150 +3,117 @@ session_start();
 include 'config/db.php';
 include 'includes/header.php';
 
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'doctor') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
     header("Location: login.php");
     exit();
 }
 
-$doctor_user_id = (int)$_SESSION['user_id'];
-$message = '';
+$user_id = (int)$_SESSION['user_id'];
+$success = "";
+$errors = [];
 
-// Fetch doctor_id
-$stmt_doc = query("SELECT doctor_id FROM doctors WHERE user_id = ?", [$doctor_user_id], "i");
-$doc_row = $stmt_doc->get_result()->fetch_assoc();
-$doctor_id = isset($doc_row['doctor_id']) ? (int)$doc_row['doctor_id'] : 0;
+/* ===== FETCH DOCTOR INFO ===== */
+$sql = "
+SELECT d.*, u.full_name, u.email 
+FROM doctors d 
+JOIN users u ON d.user_id = u.user_id
+WHERE d.user_id = ?
+";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$doctor = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-// Handle POSTs
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+/* ===== UPDATE PROFILE ===== */
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // Update profile
-    if (isset($_POST['update_profile'])) {
-        $specialization = trim($_POST['specialization']);
-        $department = trim($_POST['department']);
-        $phone = trim($_POST['phone']);
+    $name = trim($_POST['full_name']);
+    $phone = trim($_POST['phone']);
+    $specialization = trim($_POST['specialization']);
+    $experience = trim($_POST['experience']);
+    $password = trim($_POST['password']);
 
-        $sql = "UPDATE doctors SET specialization = ?, department = ?, phone = ? WHERE doctor_id = ?";
-        $stmt = query($sql, [$specialization, $department, $phone, $doctor_id], "sssi");
-        if ($stmt && $stmt->affected_rows >= 0) {
-            $message = "<div class='alert alert-success'>Profile details updated successfully!</div>";
-        } else {
-            $message = "<div class='alert alert-danger'>Error updating profile.</div>";
-        }
+    if ($name === '' || $phone === '' || $specialization === '') {
+        $errors[] = "Name, Phone, and Specialization are required.";
     }
 
-    // Manage schedule (REPLACE INTO to upsert)
-    if (isset($_POST['update_schedule'])) {
-        $day = $_POST['day_of_week'];
-        $start = $_POST['start_time'];
-        $end = $_POST['end_time'];
+    if (empty($errors)) {
 
-        // Use REPLACE or INSERT ... ON DUPLICATE KEY to upsert. Ensure doctor_schedules has unique constraint (doctor_id, day_of_week)
-        $sql = "REPLACE INTO doctor_schedules (doctor_id, day_of_week, start_time, end_time, status) VALUES (?, ?, ?, ?, 'Active')";
-        $stmt = query($sql, [$doctor_id, $day, $start, $end], "isss");
-        if ($stmt && ($stmt->affected_rows > 0)) {
-            $message = "<div class='alert alert-success'>Schedule for {$day} updated successfully!</div>";
-        } else {
-            $message = "<div class='alert alert-danger'>Failed to update schedule.</div>";
+        // update users table
+        $u = $conn->prepare("UPDATE users SET full_name=?, phone=? WHERE user_id=?");
+        $u->bind_param("ssi", $name, $phone, $user_id);
+        $u->execute();
+        $u->close();
+
+        // update doctors table
+        $d = $conn->prepare("UPDATE doctors SET specialization=?, experience=? WHERE user_id=?");
+        $d->bind_param("ssi", $specialization, $experience, $user_id);
+        $d->execute();
+        $d->close();
+
+        // password update (optional)
+        if ($password !== '') {
+            $hash = password_hash($password, PASSWORD_DEFAULT);
+            $p = $conn->prepare("UPDATE users SET password=? WHERE user_id=?");
+            $p->bind_param("si", $hash, $user_id);
+            $p->execute();
+            $p->close();
         }
+
+        $_SESSION['full_name'] = $name;
+        $success = "Profile updated successfully.";
     }
 }
-
-// Fetch profile details
-$profile_sql = "SELECT u.full_name, d.specialization, d.department, d.phone
-                FROM doctors d JOIN users u ON d.user_id = u.user_id
-                WHERE d.doctor_id = ?";
-$stmt_profile = query($profile_sql, [$doctor_id], "i");
-$profile_data = $stmt_profile->get_result()->fetch_assoc();
-
-// Fetch schedules (map by day)
-$schedule_sql = "SELECT * FROM doctor_schedules WHERE doctor_id = ? ORDER BY FIELD(day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')";
-$stmt_schedule = query($schedule_sql, [$doctor_id], "i");
-$schedules = $stmt_schedule->get_result()->fetch_all(MYSQLI_ASSOC);
-$schedule_map = array_column($schedules, null, 'day_of_week');
-$days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 ?>
 
 <div class="container my-5">
-    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-        <h2 class="text-primary">Profile Management: <?php echo htmlspecialchars($profile_data['full_name'] ?? 'Doctor'); ?></h2>
-        <a href="doctor_dashboard.php" class="btn btn-secondary">Dashboard</a>
-    </div>
+    <h3>⚙ Doctor Profile</h3>
 
-    <?php echo $message; ?>
+    <?php if ($success): ?>
+        <div class="alert alert-success"><?= $success ?></div>
+    <?php endif; ?>
 
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card shadow-sm p-4 mb-4">
-                <h4 class="text-success mb-3">Update Personal Details</h4>
-                <form method="post" action="doctor_profile.php">
-                    <input type="hidden" name="update_profile" value="1">
-                    <div class="mb-3">
-                        <label for="specialization" class="form-label">Specialization</label>
-                        <input type="text" class="form-control" id="specialization" name="specialization" value="<?php echo htmlspecialchars($profile_data['specialization'] ?? ''); ?>" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="department" class="form-label">Department</label>
-                        <input type="text" class="form-control" id="department" name="department" value="<?php echo htmlspecialchars($profile_data['department'] ?? ''); ?>" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="phone" class="form-label">Phone</label>
-                        <input type="text" class="form-control" id="phone" name="phone" value="<?php echo htmlspecialchars($profile_data['phone'] ?? ''); ?>" required>
-                    </div>
-                    <button type="submit" class="btn btn-success w-100">Save Profile</button>
-                </form>
-            </div>
+    <?php if ($errors): ?>
+        <div class="alert alert-danger">
+            <?php foreach ($errors as $e) echo "<div>$e</div>"; ?>
+        </div>
+    <?php endif; ?>
+
+    <form method="post" class="card p-4 mt-3">
+        <div class="mb-3">
+            <label>Full Name</label>
+            <input name="full_name" class="form-control" value="<?= htmlspecialchars($doctor['full_name']) ?>">
         </div>
 
-        <div class="col-md-6">
-            <div class="card shadow-sm p-4 mb-4">
-                <h4 class="text-info mb-3">Manage Weekly Schedule / Shift</h4>
-                <form method="post" action="doctor_profile.php" class="mb-4">
-                    <input type="hidden" name="update_schedule" value="1">
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label for="day_of_week" class="form-label">Day</label>
-                            <select class="form-select" id="day_of_week" name="day_of_week" required>
-                                <option value="">Select Day</option>
-                                <?php foreach($days as $day): ?>
-                                    <option value="<?php echo $day; ?>"><?php echo $day; ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="start_time" class="form-label">Start Time</label>
-                            <input type="time" class="form-control" id="start_time" name="start_time" required>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="end_time" class="form-label">End Time</label>
-                            <input type="time" class="form-control" id="end_time" name="end_time" required>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-info w-100">Add/Update Shift</button>
-                </form>
-
-                <h5 class="mt-4">Current Duty Roster:</h5>
-                <ul class="list-group">
-                    <?php 
-                    $has_schedule = false;
-                    foreach ($days as $day):
-                        if (isset($schedule_map[$day])):
-                            $has_schedule = true;
-                            $sch = $schedule_map[$day];
-                    ?>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div><strong><?php echo $day; ?></strong></div>
-                            <div class="text-muted"><?php echo date('h:i A', strtotime($sch['start_time'])) . ' - ' . date('h:i A', strtotime($sch['end_time'])); ?></div>
-                        </li>
-                    <?php 
-                        endif;
-                    endforeach;
-                    if (!$has_schedule): ?>
-                        <li class="list-group-item text-center text-muted">No shifts defined yet.</li>
-                    <?php endif; ?>
-                </ul>
-            </div>
+        <div class="mb-3">
+            <label>Email (readonly)</label>
+            <input class="form-control" value="<?= htmlspecialchars($doctor['email']) ?>" readonly>
         </div>
-    </div>
+
+        <div class="mb-3">
+            <label>Phone</label>
+            <input name="phone" class="form-control" value="<?= htmlspecialchars($doctor['phone']) ?>">
+        </div>
+
+        <div class="mb-3">
+            <label>Specialization</label>
+            <input name="specialization" class="form-control" value="<?= htmlspecialchars($doctor['specialization']) ?>">
+        </div>
+
+        <div class="mb-3">
+            <label>Experience</label>
+            <input name="experience" class="form-control" value="<?= htmlspecialchars($doctor['experience']) ?>">
+        </div>
+
+        <div class="mb-3">
+            <label>New Password (optional)</label>
+            <input name="password" type="password" class="form-control">
+        </div>
+
+        <button class="btn btn-primary">Update Profile</button>
+        <a href="doctor_dashboard.php" class="btn btn-secondary">Back</a>
+    </form>
 </div>
 
 <?php include 'includes/footer.php'; ?>
