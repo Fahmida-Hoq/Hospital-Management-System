@@ -12,7 +12,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
 $message = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // 1. Collect required user data
+    // Collect required user data
     $full_name = $_POST['full_name'];
     $email = $_POST['email'];
     $password = $_POST['password'];
@@ -20,7 +20,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $phone = $_POST['phone'];
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-    // 2. Insert into users table
+    // Insert into users table
     $user_sql = "INSERT INTO users (full_name, email, password, role, phone) VALUES (?, ?, ?, ?, ?)";
     $stmt_user = query($user_sql, [$full_name, $email, $hashed_password, $role, $phone], "sssss");
 
@@ -28,7 +28,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $new_user_id = $stmt_user->insert_id;
         $success = true;
 
-        // 3. Insert into specific role table
+        //  Insert into specific role table
         if ($role == 'doctor') {
             $specialization = $_POST['specialization'];
             $department = $_POST['department'];
@@ -48,11 +48,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             if ($stmt_labtech->affected_rows === 0) {
                 $success = false;
-                // Handle error (optional: delete user record)
+                // Handle error 
             }
         }
         
-        // 4. Set status message
+        //  Set status message
         if ($success) {
             $message = "<div class='alert alert-success'>Successfully registered new staff member: **{$full_name}** ({$role}).</div>";
         } else {
@@ -65,7 +65,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 
 <div class="container my-5">
-    <h2 class="text-danger mb-4">👑 Staff Registration</h2>
+    <h2 class="text-danger mb-4"> Staff Registration</h2>
     <p class="lead">Register new Doctors, Lab Technicians, and Receptionists.</p>
     
     <?php echo $message; ?>

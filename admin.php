@@ -11,9 +11,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
 
 $admin_name = $_SESSION['full_name'] ?? 'System Administrator';
 
-// 1. Total Staff (Doctor, Receptionist, Lab Tech)
+// Total Staff (Doctor, Receptionist, Lab Tech)
 $total_staff = query("SELECT COUNT(user_id) FROM users WHERE role IN ('doctor', 'receptionist', 'labtech')")->get_result()->fetch_row()[0] ?? 0;
-// 2. Total Patients
+// Total Patients
 $total_patients = query("SELECT COUNT(patient_id) FROM patients")->get_result()->fetch_row()[0] ?? 0;
 ?>
 

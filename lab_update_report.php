@@ -1,76 +1,114 @@
 <?php
-// lab_update_report.php
 session_start();
 include 'config/db.php';
 include 'includes/header.php';
-if (!isset($_SESSION['user_id']) || (!in_array($_SESSION['role'], ['lab','labtech']))) {
+
+
+  // AUTH CHECK
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['lab','labtech'])) {
     header("Location: login.php");
     exit();
 }
-
+   //GET TEST ID
 $test_id = (int)($_GET['test_id'] ?? 0);
-if ($test_id <= 0) { echo "<div class='alert alert-danger'>Invalid test id</div>"; include 'includes/footer.php'; exit; }
+if ($test_id <= 0) {
+    echo "<div class='container my-5 alert alert-danger'>Invalid lab test</div>";
+    include 'includes/footer.php';
+    exit();
+}
 
+$success = "";
 $errors = [];
-$success = '';
 
-// fetch test
-$stmt = $conn->prepare("SELECT lt.*, COALESCE(p.name, u.full_name) AS patient_name FROM lab_tests lt JOIN patients p ON lt.patient_id = p.patient_id LEFT JOIN users u ON p.user_id = u.user_id WHERE lt.test_id = ?");
-$stmt->bind_param("i", $test_id);
-$stmt->execute();
-$test = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+   //SAVE LAB RESULT
+if (isset($_POST['save_result'])) {
 
-if (!$test) { echo "<div class='alert alert-danger'>Test not found</div>"; include 'includes/footer.php'; exit; }
+    $result = trim($_POST['result']);
 
-// handle upload
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['report_file'])) {
-    if ($_FILES['report_file']['error'] === UPLOAD_ERR_OK) {
-        $ext = pathinfo($_FILES['report_file']['name'], PATHINFO_EXTENSION);
-        $targetDir = __DIR__ . '/uploads/reports';
-        if (!is_dir($targetDir)) mkdir($targetDir, 0777, true);
-        $targetFile = $targetDir . '/report_' . $test_id . '_' . time() . '.' . $ext;
-        $publicPath = 'uploads/reports/' . basename($targetFile);
+    if ($result === '') {
+        $errors[] = "Result cannot be empty";
+    } else {
 
-        if (move_uploaded_file($_FILES['report_file']['tmp_name'], $targetFile)) {
-            // update lab_tests
-            $u = $conn->prepare("UPDATE lab_tests SET report_file = ?, status = 'completed', date_completed = NOW(), doctor_notified = 0 WHERE test_id = ?");
-            if ($u) {
-                $u->bind_param("si", $publicPath, $test_id);
-                if ($u->execute()) {
-                    $success = "Report uploaded and test marked completed. Doctor will be notified.";
-                } else $errors[] = "DB execute error: " . $u->error;
-                $u->close();
-            } else $errors[] = "DB prepare error: " . $conn->error;
-        } else $errors[] = "Failed to move uploaded file.";
-    } else $errors[] = "Upload error code: " . $_FILES['report_file']['error'];
+        $sql = "
+        UPDATE lab_tests 
+        SET result = '$result',
+            status = 'completed',
+            doctor_notified = 0
+        WHERE test_id = $test_id
+        ";
+
+        if ($conn->query($sql)) {
+            $success = "Lab result submitted successfully";
+        } else {
+            $errors[] = "Update failed: " . $conn->error;
+        }
+    }
+}
+
+
+ //  FETCH LAB TEST
+$sql = "
+SELECT 
+    lt.test_id,
+    lt.test_name,
+    lt.status,
+    lt.result,
+    p.name AS patient_name
+FROM lab_tests lt
+JOIN appointments a ON lt.appointment_id = a.appointment_id
+JOIN patients p ON a.patient_id = p.patient_id
+WHERE lt.test_id = $test_id
+";
+
+$res = $conn->query($sql);
+$test = $res ? $res->fetch_assoc() : null;
+
+if (!$test) {
+    echo "<div class='container my-5 alert alert-danger'>Lab test not found</div>";
+    include 'includes/footer.php';
+    exit();
 }
 ?>
 
 <div class="container my-5">
-    <div class="d-flex justify-content-between align-items-center">
-        <h3>Update Test: <?= htmlspecialchars($test['test_name']) ?> — <?= htmlspecialchars($test['patient_name']) ?></h3>
-        <a href="lab_pending_tests.php" class="btn btn-secondary">Back</a>
-    </div>
 
-    <?php if ($success) echo "<div class='alert alert-success'>".htmlspecialchars($success)."</div>"; ?>
-    <?php if (!empty($errors)) { echo "<div class='alert alert-danger'>"; foreach ($errors as $e) echo "<div>".htmlspecialchars($e)."</div>"; echo "</div>"; } ?>
+<h3>Lab Test Report</h3>
 
-    <form method="post" enctype="multipart/form-data" class="card p-3">
-        <div class="mb-2">
-            <label>Upload report (PDF, JPG, PNG)</label>
-            <input type="file" name="report_file" accept=".pdf,image/*" required class="form-control">
-        </div>
-        <div class="mb-2">
-            <label>Report notes (optional)</label>
-            <textarea name="report_notes" class="form-control"></textarea>
-        </div>
-        <button class="btn btn-success">Upload & Complete</button>
+<?php if ($success): ?>
+    <div class="alert alert-success"><?= $success ?></div>
+<?php endif; ?>
+
+<?php foreach ($errors as $e): ?>
+    <div class="alert alert-danger"><?= $e ?></div>
+<?php endforeach; ?>
+
+<div class="card p-4 shadow-sm">
+
+    <p><strong>Patient:</strong> <?= htmlspecialchars($test['patient_name']) ?></p>
+    <p><strong>Test Name:</strong> <?= htmlspecialchars($test['test_name']) ?></p>
+    <p><strong>Status:</strong> <?= htmlspecialchars($test['status']) ?></p>
+
+    <form method="post">
+        <label class="mt-3">Test Result</label>
+        <textarea name="result" class="form-control mb-3" rows="5"
+                  <?= $test['status'] === 'completed' ? 'readonly' : '' ?>
+        ><?= htmlspecialchars($test['result']) ?></textarea>
+
+        <?php if ($test['status'] !== 'completed'): ?>
+            <button name="save_result" class="btn btn-success">
+                Save Result
+            </button>
+        <?php else: ?>
+            <div class="alert alert-info mt-3">
+                This test is already completed.
+            </div>
+        <?php endif; ?>
     </form>
 
-    <?php if (!empty($test['report_file'])): ?>
-        <div class="mt-3"><a href="<?= htmlspecialchars($test['report_file']) ?>" target="_blank">View existing report</a></div>
-    <?php endif; ?>
+</div>
+
+<a href="lab_pending_tests.php" class="btn btn-secondary mt-3">⬅ Back</a>
+
 </div>
 
 <?php include 'includes/footer.php'; ?>

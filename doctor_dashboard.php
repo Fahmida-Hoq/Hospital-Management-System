@@ -156,16 +156,16 @@ if ($stmt) {
     <!-- ACTION BUTTONS -->
     <div class="row g-3 mb-4">
         <div class="col-md-3">
-            <a href="doctor_appointments.php" class="btn btn-outline-primary w-100">📅 My Appointments</a>
+            <a href="doctor_appointments.php" class="btn btn-outline-primary w-100">My Appointments</a>
         </div>
         <div class="col-md-3">
-            <a href="doctor_patients.php" class="btn btn-outline-success w-100">👥 My Patients</a>
+            <a href="doctor_patients.php" class="btn btn-outline-success w-100"> My Patients</a>
         </div>
         <div class="col-md-3">
-            <a href="doctor_lab_notifications.php" class="btn btn-outline-warning w-100">🧪 Lab Notifications</a>
+            <a href="doctor_lab_notifications.php" class="btn btn-outline-warning w-100"> Lab Notifications</a>
         </div>
         <div class="col-md-3">
-            <a href="doctor_profile.php" class="btn btn-outline-dark w-100">⚙ Edit Profile</a>
+            <a href="doctor_profile.php" class="btn btn-outline-dark w-100">Edit Profile</a>
         </div>
     </div>
 

@@ -21,7 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt = query($sql, [$patient_id, $doctor_id, $date, $time], "iiss");
         
         if ($stmt->affected_rows > 0) {
-            $message = "<div class='alert alert-success'>Appointment requested successfully! Status is **Pending** until approved by staff. <a href='view_appointments.php'>View details</a>.</div>";
+            $message = "<div class='alert alert-success'>Appointment requested successfully! Status is **Pending** until approved by staff. <a href='view_appointments.php'></a></div>";
         } else {
             $message = "<div class='alert alert-danger'>Failed to book appointment. Please try again.</div>";
         }

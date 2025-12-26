@@ -12,7 +12,7 @@ $user_id = (int)$_SESSION['user_id'];
 $success = "";
 $errors = [];
 
-/* ===== FETCH DOCTOR INFO ===== */
+/*  FETCH DOCTOR INFO  */
 $sql = "
 SELECT d.*, u.full_name, u.email 
 FROM doctors d 
@@ -25,7 +25,7 @@ $stmt->execute();
 $doctor = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-/* ===== UPDATE PROFILE ===== */
+/* UPDATE PROFILE  */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $name = trim($_POST['full_name']);
@@ -99,11 +99,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="mb-3">
             <label>Specialization</label>
             <input name="specialization" class="form-control" value="<?= htmlspecialchars($doctor['specialization']) ?>">
-        </div>
-
-        <div class="mb-3">
-            <label>Experience</label>
-            <input name="experience" class="form-control" value="<?= htmlspecialchars($doctor['experience']) ?>">
         </div>
 
         <div class="mb-3">

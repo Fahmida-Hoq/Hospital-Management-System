@@ -35,7 +35,7 @@ $stmt->close();
 ?>
 
 <div class="container my-5">
-    <h3>👥 My Patients</h3>
+    <h3> My Patients</h3>
 
     <table class="table table-bordered mt-3">
         <tr>

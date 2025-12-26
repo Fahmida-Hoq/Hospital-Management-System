@@ -3,9 +3,6 @@ session_start();
 include 'config/db.php';
 include 'includes/header.php';
 
-/* =========================
-   AUTH
-========================= */
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
     header("Location: login.php");
     exit();
@@ -13,18 +10,19 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
 
 $doctor_user_id = (int)$_SESSION['user_id'];
 
-/* =========================
-   GET DOCTOR ID
-========================= */
-$stmt = $conn->prepare("SELECT doctor_id FROM doctors WHERE user_id=?");
-$stmt->bind_param("i", $doctor_user_id);
-$stmt->execute();
-$doctor_id = (int)($stmt->get_result()->fetch_assoc()['doctor_id'] ?? 0);
-$stmt->close();
+/* GET DOCTOR ID */
+$res = $conn->query("SELECT doctor_id FROM doctors WHERE user_id=$doctor_user_id");
+if (!$res || $res->num_rows === 0) {
+    echo "<div class='alert alert-danger'>Doctor profile not found</div>";
+    include 'includes/footer.php';
+    exit();
+}
+$doctor_id = (int)$res->fetch_assoc()['doctor_id'];
 
+/* GET PATIENT */
 $patient_id = (int)($_GET['patient_id'] ?? 0);
 if ($patient_id <= 0) {
-    echo "<div class='container my-5 alert alert-danger'>Invalid patient</div>";
+    echo "<div class='alert alert-danger'>Invalid patient</div>";
     include 'includes/footer.php';
     exit();
 }
@@ -32,166 +30,260 @@ if ($patient_id <= 0) {
 $errors = [];
 $success = "";
 
-/* =========================
-   ASSIGN LAB TEST
-========================= */
-if (isset($_POST['assign_lab'])) {
-    $test_name = trim($_POST['test_name']);
+/* =============================
+   CHECK EXISTING ADMISSION REQUEST
+============================= */
+$admission_request = null;
+$res = $conn->query("
+    SELECT *
+    FROM admission_requests
+    WHERE patient_id = $patient_id
+    AND doctor_id = $doctor_id
+    ORDER BY request_id DESC
+    LIMIT 1
+");
+if ($res && $res->num_rows > 0) {
+    $admission_request = $res->fetch_assoc();
+}
 
-    if ($test_name === '') {
-        $errors[] = "Test name required";
+/* =============================
+   ASSIGN LAB TEST
+============================= */
+if (isset($_POST['assign_lab'])) {
+
+    $test_name = trim($_POST['test_name']);
+    $appointment_id = (int)$_POST['appointment_id'];
+
+    if ($test_name === '' || $appointment_id <= 0) {
+        $errors[] = "Test name and appointment required";
     } else {
-        $stmt = $conn->prepare("
-            INSERT INTO lab_tests 
-            (patient_id, test_name, status, doctor_notified)
-            VALUES (?, ?, 'pending', 0)
-        ");
-        $stmt->bind_param("is", $patient_id, $test_name);
-        $stmt->execute();
-        $stmt->close();
-        $success = "Lab test assigned";
+        $test_name = $conn->real_escape_string($test_name);
+
+        if ($conn->query("
+            INSERT INTO lab_tests
+            (appointment_id, doctor_id, test_name, status, doctor_notified)
+            VALUES ($appointment_id, $doctor_id, '$test_name', 'pending', 0)
+        ")) {
+            $success = "Lab test assigned successfully";
+        } else {
+            $errors[] = "Lab error: " . $conn->error;
+        }
     }
 }
 
-/* =========================
+/* =============================
    PRESCRIPTION
-========================= */
+============================= */
 if (isset($_POST['prescribe'])) {
-    $medicines = trim($_POST['prescribed_medicines']);
+
+    $med = trim($_POST['prescribed_medicines']);
     $notes = trim($_POST['doctor_notes']);
 
-    if ($medicines === '') {
-        $errors[] = "Medicines required";
+    if ($med === '') {
+        $errors[] = "Medicines field is required";
     } else {
-        $stmt = $conn->prepare("
+
+        $med = $conn->real_escape_string($med);
+        $notes = $conn->real_escape_string($notes);
+
+        $conn->query("
             INSERT INTO prescriptions
-            (patient_id, doctor_id, prescribed_medicines, doctor_notes)
-            VALUES (?, ?, ?, ?)
+            (patient_id, doctor_id, prescribed_medicines, doctor_notes, created_at)
+            VALUES ($patient_id, $doctor_id, '$med', '$notes', NOW())
         ");
-        $stmt->bind_param("iiss", $patient_id, $doctor_id, $medicines, $notes);
-        $stmt->execute();
-        $stmt->close();
+
         $success = "Prescription saved";
     }
 }
 
-/* =========================
+/* =============================
    ADMISSION REQUEST
-========================= */
+============================= */
 if (isset($_POST['suggest_admission'])) {
-    $reason = trim($_POST['admission_reason']);
-    $dept = trim($_POST['suggested_department']);
-    $ward = trim($_POST['suggested_ward']);
 
-    if ($reason === '') {
-        $errors[] = "Admission reason required";
+    if ($admission_request && $admission_request['request_status'] === 'Pending Reception') {
+        $errors[] = "Admission request already sent and pending";
     } else {
-        $stmt = $conn->prepare("
-            INSERT INTO admission_requests
-            (patient_id, doctor_id, suggested_ward, suggested_department, doctor_reason, request_status, request_date)
-            VALUES (?, ?, ?, ?, ?, 'Pending Reception', NOW())
-        ");
-        $stmt->bind_param("iisss", $patient_id, $doctor_id, $ward, $dept, $reason);
-        $stmt->execute();
-        $stmt->close();
 
-        $conn->query("
-            UPDATE patients 
-            SET admission_reason='$reason'
-            WHERE patient_id=$patient_id
-        ");
+        $reason = trim($_POST['admission_reason']);
+        $dept   = trim($_POST['suggested_department']);
+        $ward   = trim($_POST['suggested_ward']);
+        $date   = $_POST['suggested_admit_date'];
 
-        $success = "Admission request sent to reception";
+        if ($reason === '' || $dept === '' || $ward === '' || $date === '') {
+            $errors[] = "All admission fields are required";
+        } else {
+
+            $reason = $conn->real_escape_string($reason);
+            $dept   = $conn->real_escape_string($dept);
+            $ward   = $conn->real_escape_string($ward);
+
+           $conn->query("
+    INSERT INTO admission_requests
+    (patient_id, doctor_id, reason, suggested_department, suggested_ward,
+     suggested_admit_date, request_status, request_date)
+    VALUES (
+        $patient_id,
+        $doctor_id,
+        '$reason',
+        '$dept',
+        '$ward',
+        '$date',
+        'Pending Reception',
+        NOW()
+    )
+");
+
+            
+
+            $success = "Admission request sent to reception";
+        }
     }
 }
 
-/* =========================
+/* =============================
    FETCH PATIENT
-========================= */
-$stmt = $conn->prepare("
+============================= */
+$res = $conn->query("
     SELECT p.*, COALESCE(u.full_name, p.name) AS patient_name
     FROM patients p
-    LEFT JOIN users u ON p.user_id=u.user_id
-    WHERE p.patient_id=?
+    LEFT JOIN users u ON p.user_id = u.user_id
+    WHERE p.patient_id = $patient_id
 ");
-$stmt->bind_param("i", $patient_id);
-$stmt->execute();
-$patient = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+if (!$res || $res->num_rows === 0) {
+    echo "<div class='alert alert-danger'>Patient not found</div>";
+    include 'includes/footer.php';
+    exit();
+}
+$patient = $res->fetch_assoc();
 
-/* =========================
-   LAB TESTS
-========================= */
-$stmt = $conn->prepare("
-    SELECT test_name, status, result
-    FROM lab_tests
-    WHERE patient_id=?
-    ORDER BY test_id DESC
+/* =============================
+   FETCH LAB RESULTS
+============================= */
+$lab_tests = [];
+$res = $conn->query("
+    SELECT lt.test_name, lt.status, lt.result
+    FROM lab_tests lt
+    JOIN appointments a ON lt.appointment_id = a.appointment_id
+    WHERE a.patient_id = $patient_id
+      AND lt.doctor_id = $doctor_id
+    ORDER BY lt.test_id DESC
 ");
-$stmt->bind_param("i", $patient_id);
-$stmt->execute();
-$lab_tests = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-
-/* =========================
-   PRESCRIPTIONS
-========================= */
-$stmt = $conn->prepare("
-    SELECT prescribed_medicines, doctor_notes
-    FROM prescriptions
-    WHERE patient_id=?
-    ORDER BY prescription_id DESC
-");
-$stmt->bind_param("i", $patient_id);
-$stmt->execute();
-$prescriptions = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+if ($res) {
+    $lab_tests = $res->fetch_all(MYSQLI_ASSOC);
+}
 ?>
 
 <div class="container my-5">
 
-<h3> Patient: <?= htmlspecialchars($patient['patient_name']) ?></h3>
+<h4>Patient: <?= htmlspecialchars($patient['patient_name']) ?></h4>
+<p><strong>Patient Type:</strong> <?= htmlspecialchars($patient['patient_type'] ?? 'Outdoor') ?></p>
 
-<?php if ($success): ?><div class="alert alert-success"><?= $success ?></div><?php endif; ?>
-<?php foreach ($errors as $e): ?><div class="alert alert-danger"><?= $e ?></div><?php endforeach; ?>
+<?php if ($success): ?>
+<div class="alert alert-success"><?= $success ?></div>
+<?php endif; ?>
 
-<p><strong>Status:</strong> <?= htmlspecialchars($patient['status']) ?></p>
+<?php foreach ($errors as $e): ?>
+<div class="alert alert-danger"><?= $e ?></div>
+<?php endforeach; ?>
 
-<?php if ($patient['status'] === 'Indoor'): ?>
-<p><strong>Ward:</strong> <?= $patient['ward'] ?> |
-<strong>Bed:</strong> <?= $patient['bed'] ?></p>
+<?php if ($admission_request): ?>
+<div class="alert alert-info">
+    <strong>Admission Status:</strong>
+    <?= htmlspecialchars($admission_request['request_status']) ?><br>
+    <strong>Suggested Date:</strong>
+    <?= htmlspecialchars($admission_request['suggested_admit_date']) ?>
+</div>
 <?php endif; ?>
 
 <hr>
 
-<h5> Lab Tests</h5>
+<h5>Lab Results</h5>
+<?php if (!$lab_tests): ?>
+<div class="text-muted">No lab tests yet</div>
+<?php endif; ?>
+
 <?php foreach ($lab_tests as $t): ?>
-    <div><?= htmlspecialchars($t['test_name']) ?> — <?= $t['status'] ?></div>
+<div class="mb-2">
+    <strong><?= htmlspecialchars($t['test_name']) ?></strong> —
+    <?= htmlspecialchars($t['status']) ?>
+    <?php if ($t['status'] === 'completed'): ?>
+        <br><strong>Result:</strong> <?= htmlspecialchars($t['result']) ?>
+    <?php endif; ?>
+</div>
 <?php endforeach; ?>
 
-<form method="post" class="mt-2">
-    <input name="test_name" class="form-control mb-2" placeholder="Test name" required>
-    <button name="assign_lab" class="btn btn-primary">Assign Test</button>
+<hr>
+
+<h5>Assign Lab Test</h5>
+<form method="post">
+    <select name="appointment_id" class="form-control mb-2" required>
+        <option value="">Select appointment</option>
+        <?php
+        $res = $conn->query("
+            SELECT appointment_id
+            FROM appointments
+            WHERE patient_id=$patient_id AND doctor_id=$doctor_id
+        ");
+        while ($row = $res->fetch_assoc()):
+        ?>
+            <option value="<?= $row['appointment_id'] ?>">
+                Appointment #<?= $row['appointment_id'] ?>
+            </option>
+        <?php endwhile; ?>
+    </select>
+
+    <input name="test_name" class="form-control mb-2"
+           placeholder="CBC / X-Ray" required>
+
+    <button name="assign_lab" class="btn btn-primary">Assign</button>
 </form>
 
 <hr>
 
-<h5> Prescription</h5>
+<h5>Prescription</h5>
 <form method="post">
-    <textarea name="prescribed_medicines" class="form-control mb-2" placeholder="Medicines" required></textarea>
-    <textarea name="doctor_notes" class="form-control mb-2" placeholder="Doctor notes"></textarea>
+    <textarea name="prescribed_medicines" class="form-control mb-2"
+              placeholder="Medicines" required></textarea>
+
+    <textarea name="doctor_notes" class="form-control mb-2"
+              placeholder="Doctor notes"></textarea>
+
     <button name="prescribe" class="btn btn-success">Save Prescription</button>
 </form>
 
 <hr>
 
-<h5> Admission Recommendation</h5>
+<h5>Admission Recommendation</h5>
+
+<?php if ($admission_request && $admission_request['request_status'] === 'Pending Reception'): ?>
+<div class="alert alert-warning">
+    Admission request already sent. Waiting for reception approval.
+</div>
+<?php elseif (($patient['patient_type'] ?? '') === 'Indoor'): ?>
+<div class="alert alert-success">
+    Patient already admitted.
+</div>
+<?php else: ?>
 <form method="post">
-    <textarea name="admission_reason" class="form-control mb-2" placeholder="Reason"></textarea>
-    <input name="suggested_department" class="form-control mb-2" placeholder="Department">
-    <input name="suggested_ward" class="form-control mb-2" placeholder="Ward">
-    <button name="suggest_admission" class="btn btn-warning">Send Admission Request</button>
+    <textarea name="admission_reason" class="form-control mb-2"
+              placeholder="Reason for admission" required></textarea>
+
+    <input name="suggested_department" class="form-control mb-2"
+           placeholder="Department" required>
+
+    <input name="suggested_ward" class="form-control mb-2"
+           placeholder="Suggested ward" required>
+
+    <label>Suggested Admission Date</label>
+    <input type="date" name="suggested_admit_date"
+           class="form-control mb-3" required>
+
+    <button name="suggest_admission" class="btn btn-warning">
+        Send Admission Request
+    </button>
 </form>
+<?php endif; ?>
 
 </div>
 

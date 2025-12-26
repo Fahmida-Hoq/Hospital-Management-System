@@ -35,7 +35,7 @@ $stmt->close();
 ?>
 
 <div class="container my-5">
-    <h3>📅 My Appointments</h3>
+    <h3> My Appointments</h3>
 
     <table class="table table-striped mt-3">
         <tr>
