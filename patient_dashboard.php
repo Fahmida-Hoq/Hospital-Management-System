@@ -43,20 +43,7 @@ $total_due = $bill_data['due'] ?? 0;
     </div>
     <?php endif; ?>
 
-    <div class="row g-4">
-        <div class="col-md-4">
-            <div class="card shadow-sm h-100 border-top-<?= ($total_due > 0) ? 'danger' : 'success' ?> border-4">
-                <div class="card-body text-center">
-                    <i class="fas fa-file-invoice-dollar fa-3x mb-3 text-muted"></i>
-                    <h5>Financial Status</h5>
-                    <h3 class="<?= ($total_due > 0) ? 'text-danger' : 'text-success' ?>">
-                        Tk. <?= number_format($total_due, 2) ?>
-                    </h3>
-                    <p class="small text-muted">Total Outstanding Balance</p>
-                    <a href="patient_records.php" class="btn btn-dark w-100">View Bills & Pay</a>
-                </div>
-            </div>
-        </div>
+  
 
         <div class="col-md-4">
             <div class="card shadow-sm h-100">
@@ -75,12 +62,11 @@ $total_due = $bill_data['due'] ?? 0;
                     <i class="fas fa-folder-open fa-3x mb-3 text-muted"></i>
                     <h5>Medical Records</h5>
                     <p>Access your prescriptions, history, and test results.</p>
-                    <a href="patient_records.php" class="btn btn-warning w-100">View Records</a>
+                    <a href="patient_records.php" class="btn btn-warning w-100">View Records & Bills</a>
                 </div>
             </div>
         </div>
-    </div>
-</div>
+  
 <div class="col-md-4">
     <div class="card shadow-sm h-100">
         <div class="card-body text-center">

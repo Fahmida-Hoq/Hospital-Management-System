@@ -8,6 +8,11 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'patient') {
     exit();
 }
 
+// Check if patient_id is in session (set during login)
+if (!isset($_SESSION['patient_id'])) {
+    die("Patient profile not found. Please log in again.");
+}
+
 $patient_id = $_SESSION['patient_id'];
 $message = '';
 
@@ -16,24 +21,45 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $date = $_POST['scheduled_time'];
     $time = $_POST['appointment_time'];
     
+    
+    $consultation_fee = 500.00; 
+
     if (!empty($doctor_id) && !empty($date) && !empty($time)) {
-        $sql = "INSERT INTO appointments (patient_id, doctor_id, scheduled_time, appointment_time, status) VALUES (?, ?, ?, ?, 'pending')";
-        $stmt = query($sql, [$patient_id, $doctor_id, $date, $time], "iiss");
         
-        if ($stmt->affected_rows > 0) {
-            $message = "<div class='alert alert-success'>Appointment requested successfully! Status is **Pending** until approved by staff. <a href='view_appointments.php'></a></div>";
+        // 1. Insert into Appointments table
+        $sql = "INSERT INTO appointments (patient_id, doctor_id, scheduled_time, appointment_time, status) VALUES (?, ?, ?, ?, 'pending')";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("iiss", $patient_id, $doctor_id, $date, $time);
+        
+        if ($stmt->execute()) {
+            
+            // 2. Fetch Doctor Name for the Bill Description
+            $doc_name_sql = "SELECT u.full_name FROM doctors d JOIN users u ON d.user_id = u.user_id WHERE d.doctor_id = ?";
+            $d_stmt = $conn->prepare($doc_name_sql);
+            $d_stmt->bind_param("i", $doctor_id);
+            $d_stmt->execute();
+            $d_res = $d_stmt->get_result()->fetch_assoc();
+            $doctor_name = $d_res['full_name'];
+
+            // 3. Insert into Billing table
+            $bill_desc = "Consultation Fee - Dr. " . $doctor_name;
+            $bill_sql = "INSERT INTO billing (patient_id, description, amount, status, bill_type) VALUES (?, ?, ?, 'Unpaid', 'Consultation')";
+            $b_stmt = $conn->prepare($bill_sql);
+            $b_stmt->bind_param("isd", $patient_id, $bill_desc, $consultation_fee);
+            $b_stmt->execute();
+
+            $message = "<div class='alert alert-success'>Appointment requested successfully! A fee of " . $consultation_fee . " TK has been added to your bill.</div>";
         } else {
-            $message = "<div class='alert alert-danger'>Failed to book appointment. Please try again.</div>";
+            $message = "<div class='alert alert-danger'>Failed to book appointment: " . $conn->error . "</div>";
         }
     } else {
         $message = "<div class='alert alert-warning'>Please fill out all fields.</div>";
     }
 }
 
-// Fetch available doctors for the form dropdown
+// Fetch doctors for dropdown
 $doctor_sql = "SELECT d.doctor_id, u.full_name, d.specialization FROM doctors d JOIN users u ON d.user_id = u.user_id ORDER BY u.full_name";
-$stmt = query($doctor_sql);
-$doctors = $stmt->get_result();
+$doctors = $conn->query($doctor_sql);
 
 include 'includes/header.php';
 ?>
@@ -46,7 +72,7 @@ include 'includes/header.php';
                 <?php echo $message; ?>
                 <form method="post" action="book_appointment.php">
                     <div class="mb-3">
-                        <label for="doctor_id" class="form-label">Select Doctor</label>
+                        <label for="doctor_id" class="form-label">Select Doctor (Consultation Fee: 500 TK)</label>
                         <select class="form-select" id="doctor_id" name="doctor_id" required>
                             <option value="">Choose a Doctor</option>
                             <?php while($doctor = $doctors->fetch_assoc()): ?>

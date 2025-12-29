@@ -10,13 +10,32 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
 
 $user_id = (int)$_SESSION['user_id'];
 
-/* get doctor_id */
+/* 1. Get doctor_id first */
 $stmt = $conn->prepare("SELECT doctor_id FROM doctors WHERE user_id=?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
-$doctor_id = (int)$stmt->get_result()->fetch_row()[0];
+$res = $stmt->get_result();
+if ($res->num_rows === 0) {
+    die("Doctor profile not found.");
+}
+$doctor_id = (int)$res->fetch_row()[0];
 $stmt->close();
 
+/* 2. HANDLE DELETE ACTION (This must be above the HTML) */
+if (isset($_GET['delete_id'])) {
+    $appt_id = (int)$_GET['delete_id'];
+    
+    // We use the $doctor_id we found above to ensure security
+    $delete_query = "DELETE FROM appointments WHERE appointment_id = $appt_id AND doctor_id = $doctor_id";
+    
+    if ($conn->query($delete_query)) {
+        // Redirect back to refresh the list
+        header("Location: doctor_appointments.php?msg=Deleted");
+        exit();
+    }
+}
+
+/* 3. Fetch Appointments for the table */
 $sql = "
 SELECT a.appointment_id, a.scheduled_time, a.status,
        COALESCE(u.full_name, p.name) AS patient_name, p.patient_id
@@ -35,29 +54,46 @@ $stmt->close();
 ?>
 
 <div class="container my-5">
-    <h3> My Appointments</h3>
+    <h3>My Appointments</h3>
+
+    <?php if(isset($_GET['msg'])): ?>
+        <div class="alert alert-success">Appointment cancelled successfully.</div>
+    <?php endif; ?>
 
     <table class="table table-striped mt-3">
-        <tr>
-            <th>Patient</th>
-            <th>Date & Time</th>
-            <th>Status</th>
-            <th>Action</th>
-        </tr>
-
-        <?php while ($a = $appointments->fetch_assoc()): ?>
+        <thead>
             <tr>
-                <td><?= htmlspecialchars($a['patient_name']) ?></td>
-                <td><?= htmlspecialchars($a['scheduled_time']) ?></td>
-                <td><?= htmlspecialchars($a['status']) ?></td>
-                <td>
-                    <a class="btn btn-sm btn-primary"
-                       href="doctor_view_patient.php?patient_id=<?= $a['patient_id'] ?>">
-                        Open
-                    </a>
-                </td>
+                <th>Patient</th>
+                <th>Date & Time</th>
+                <th>Status</th>
+                <th>Action</th>
             </tr>
-        <?php endwhile; ?>
+        </thead>
+        <tbody>
+            <?php while ($a = $appointments->fetch_assoc()): ?>
+                <tr>
+                    <td><?= htmlspecialchars($a['patient_name']) ?></td>
+                    <td><?= htmlspecialchars($a['scheduled_time']) ?></td>
+                    <td>
+                        <span class="badge <?= ($a['status'] == 'Completed') ? 'bg-success' : 'bg-warning text-dark' ?>">
+                            <?= htmlspecialchars($a['status']) ?>
+                        </span>
+                    </td>
+                    <td>
+                        <a class="btn btn-sm btn-primary"
+                           href="doctor_view_patient.php?patient_id=<?= $a['patient_id'] ?>">
+                            Open
+                        </a>
+
+                        <a class="btn btn-sm btn-danger" 
+                           href="doctor_appointments.php?delete_id=<?= $a['appointment_id'] ?>"
+                           onclick="return confirm('Are you sure you want to delete this appointment?')">
+                            Delete
+                        </a>
+                    </td>
+                </tr>
+            <?php endwhile; ?>
+        </tbody>
     </table>
 
     <a href="doctor_dashboard.php" class="btn btn-secondary">Back</a>

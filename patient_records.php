@@ -20,19 +20,40 @@ $info = $conn->query("SELECT * FROM patients WHERE patient_id = $patient_id")->f
 
     <div class="row">
         <div class="col-md-4">
-            <div class="card mb-4 shadow-sm">
+            <div class="card mb-4 shadow-sm border-primary">
                 <div class="card-header bg-primary text-white">Current Information</div>
                 <div class="card-body">
-                    <p><strong>Status:</strong> <?= $info['status'] ?></p>
+                    <p><strong>Status:</strong> <span class="badge bg-info text-dark"><?= $info['status'] ?></span></p>
                     <p><strong>Blood Group:</strong> <?= $info['blood_group'] ?? 'N/A' ?></p>
-                    <p><strong>Reason:</strong> <?= $info['admission_reason'] ?? 'None' ?></p>
                     <hr>
+                    <!-- <p class="mb-1 text-muted small uppercase fw-bold">Attending Physician</p>
+                    <h5 class="text-primary font-weight-bold"><i class="fas fa-user-md mr-2"></i> <?= $info['referred_by_doctor'] ?? 'Unassigned' ?></h5> -->
+                    
+                    
                     <p><strong>Ward:</strong> <?= $info['ward'] ?? 'N/A' ?></p>
                     <p><strong>Bed:</strong> <?= $info['bed'] ?? 'N/A' ?></p>
                 </div>
             </div>
         </div>
-
+<div class="card shadow-sm mt-2">
+    <div class="card-header bg-info text-white">My Lab Reports</div>
+    <div class="table-responsive">
+       <table class="table mb-2">
+            <thead><tr><th>Test Name</th><th>Result</th><th>Date</th></tr></thead>
+            <tbody>
+                <?php
+                $lab_q = $conn->query("SELECT * FROM lab_tests WHERE appointment_id IN (SELECT appointment_id FROM appointments WHERE patient_id = $patient_id) AND status = 'completed'");
+                while($lab = $lab_q->fetch_assoc()): ?>
+                <tr>
+                    <td><?= $lab['test_name'] ?></td>
+                    <td><strong><?= $lab['result'] ?></strong></td>
+                    <td><?= date('d M, Y', strtotime($lab['created_at'])) ?></td>
+                </tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
         <div class="col-md-8">
             <div class="card shadow-sm">
                 <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
@@ -58,9 +79,12 @@ $info = $conn->query("SELECT * FROM patients WHERE patient_id = $patient_id")->f
                                 if($b['status'] == 'Unpaid') $total += $b['amount'];
                             ?>
                             <tr>
-                                <td><?= $b['description'] ?></td>
-                                <td><?= date('d M', strtotime($b['billing_date'])) ?></td>
-                                <td>Rs. <?= number_format($b['amount'], 2) ?></td>
+                                <td>
+                                    <span class="text-capitalize small text-muted d-block"><?= $b['bill_type'] ?? 'Service' ?></span>
+                                    <strong><?= $b['description'] ?></strong>
+                                </td>
+                                <td><?= date('d M, Y', strtotime($b['billing_date'])) ?></td>
+                                <td>Tk. <?= number_format($b['amount'], 2) ?></td>
                                 <td>
                                     <span class="badge bg-<?= $b['status'] == 'Paid' ? 'success' : 'danger' ?>">
                                         <?= $b['status'] ?>
@@ -72,7 +96,7 @@ $info = $conn->query("SELECT * FROM patients WHERE patient_id = $patient_id")->f
                         <tfoot class="table-light">
                             <tr>
                                 <th colspan="2" class="text-end">Total Unpaid:</th>
-                                <th colspan="2" class="text-danger">Rs. <?= number_format($total, 2) ?></th>
+                                <th colspan="2" class="text-danger h5">Tk. <?= number_format($total, 2) ?></th>
                             </tr>
                         </tfoot>
                     </table>
