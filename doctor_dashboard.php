@@ -126,7 +126,16 @@ if ($stmt) {
         <div class="col-md-3"><a href="doctor_lab_notifications.php" class="btn btn-outline-warning w-100 py-2">Lab Notifications</a></div>
         <div class="col-md-3"><a href="doctor_profile.php" class="btn btn-outline-dark w-100 py-2">Edit Profile</a></div>
     </div>
-
+<div class="col-md-4">
+    <div class="card border-0 shadow-sm bg-danger text-white p-3">
+        <h5>My Indoor Wards</h5>
+        <?php 
+           $my_indoor = $conn->query("SELECT COUNT(*) FROM admissions WHERE status='Admitted' AND doctor_id='".$_SESSION['user_id']."'")->fetch_row()[0];
+        ?>
+        <div class="display-6 fw-bold"><?= $my_indoor ?> Patients</div>
+        <a href="doctor_indoor_patients.php" class="text-white small mt-2 d-block">Go to Ward →</a>
+    </div>
+</div>
     <div class="card shadow-sm">
         <div class="card-header bg-white"><h5 class="mb-0">Recent Patients Assigned to You</h5></div>
         <div class="card-body p-0">

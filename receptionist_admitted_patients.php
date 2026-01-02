@@ -16,7 +16,7 @@ $res = $conn->query($query);
 <div class="container-fluid my-5 px-4">
     <div class="card shadow border-0">
         <div class="card-header bg-dark text-white p-3">
-            <h4 class="mb-0">Current Admitted Patients (Indoor)</h4>
+            <h4 class="mb-0">Current Admitted Patients (Outdoor to Indoor)</h4>
         </div>
         <div class="card-body p-0">
             <table class="table table-hover align-middle mb-0">

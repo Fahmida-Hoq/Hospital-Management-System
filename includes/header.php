@@ -51,7 +51,10 @@
                     <li class="nav-item">
                         <a class="nav-link btn btn-outline-light ms-2" href="login.php">Login</a>
                     </li>
-                </ul>
+                   
+
+
+            </ul>
             </div>
         </div>
     </nav>

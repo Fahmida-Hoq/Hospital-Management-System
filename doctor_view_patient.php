@@ -3,6 +3,7 @@ session_start();
 include 'config/db.php';
 include 'includes/header.php';
 
+
 // Role Security: Ensure only Doctors can access
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
     header("Location: login.php");
@@ -33,24 +34,32 @@ $errors = [];
     ACTION: ASSIGN SELECTIVE LAB TESTS (FIXED)
 ============================================== */
 if (isset($_POST['assign_lab'])) {
-    // Find the latest appointment ID for this patient/doctor
-    $appt_check = $conn->query("SELECT appointment_id FROM appointments WHERE patient_id = $patient_id AND doctor_id = $doctor_id ORDER BY appointment_id DESC LIMIT 1");
-    $current_appt_id = ($appt_check->num_rows > 0) ? $appt_check->fetch_assoc()['appointment_id'] : 0;
+    // Get the current appointment ID
+    $appt_check = $conn->query("SELECT appointment_id FROM appointments WHERE patient_id = $patient_id ORDER BY appointment_id DESC LIMIT 1");
+    $appt_row = $appt_check->fetch_assoc();
+    $current_appt_id = $appt_row ? $appt_row['appointment_id'] : 0;
 
     $tests_to_insert = !empty($_POST['lab_tests']) ? $_POST['lab_tests'] : [];
-    if (!empty($_POST['custom_test_name'])) { $tests_to_insert[] = trim($_POST['custom_test_name']); }
+    if (!empty($_POST['custom_test_name'])) { 
+        $tests_to_insert[] = trim($_POST['custom_test_name']); 
+    }
 
-    if (!empty($tests_to_insert) && $current_appt_id > 0) {
+    if (!empty($tests_to_insert)) {
         foreach ($tests_to_insert as $test_name) {
             $test_name = $conn->real_escape_string($test_name);
-            // ADDED appointment_id to the query below
-            $sql = "INSERT INTO lab_tests (patient_id, doctor_id, appointment_id, doctor_name, test_name, status) 
-                    VALUES ($patient_id, $doctor_id, $current_appt_id, '$doctor_name', '$test_name', 'pending')";
-            $conn->query($sql);
+            // UPDATED QUERY: Includes patient_id and appointment_id
+          $sql = "INSERT INTO lab_tests 
+(patient_id, appointment_id, doctor_id, test_name, status, created_at)
+VALUES 
+($patient_id, $current_appt_id, $doctor_id, '$test_name', 'pending', NOW())
+";
+
+            
+            if (!$conn->query($sql)) {
+                echo "Error: " . $conn->error; // This will show you if any other columns are missing
+            }
         }
         $success = "Lab tests ordered successfully!";
-    } else {
-        $errors[] = "Error: No active appointment found or no test selected.";
     }
 }
 
@@ -240,7 +249,11 @@ $pending_admission = ($admit_res && $admit_res->num_rows > 0);
                     </form>
                 </div>
             </div>
-<div class="mt-4">
+
+
+
+
+ <div class="mt-4">
     <h4>Lab Reports for this Patient</h4>
     <?php
     // FIX: Define the missing variable by finding the latest appointment
@@ -269,7 +282,9 @@ $pending_admission = ($admit_res && $admit_res->num_rows > 0);
         echo "<p class='text-muted'>No active appointment found for this patient.</p>";
     }
     ?>
-</div>
+</div> 
+
+
             <div class="card mb-4 border-success shadow-sm">
                 <div class="card-body">
                     <h5 class="text-success mb-3"><i class="fas fa-pills"></i> New Prescription</h5>
