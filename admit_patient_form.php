@@ -7,13 +7,14 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['receptionist'
     header("Location: login.php"); exit();
 }
 
-// 1. Fetch Doctors (Joining users to get names as per image_c2ac28.jpg)
-$doctors = $conn->query("SELECT u.full_name, d.doctor_id, d.department 
-                         FROM doctors d JOIN users u ON d.user_id = u.user_id");
+// 1. Fetch Doctors
+$doctors = $conn->query("SELECT u.full_name, d.doctor_id, d.department FROM doctors d JOIN users u ON d.user_id = u.user_id");
 
-// 2. Fetch Available Beds and Cabins 
+// 2. Fetch Available Beds
 $beds = $conn->query("SELECT * FROM beds WHERE status = 'Available' ORDER BY ward_name ASC");
-$admission_fee = 500 ; 
+
+// 3. Set a Fixed Password for all new patients
+$fixed_password = "123456";
 ?>
 
 <div class="container my-5">
@@ -26,6 +27,7 @@ $admission_fee = 500 ;
         </div>
 
         <form action="process_indoor_admission.php" method="POST" class="card-body p-5 bg-light">
+            
             <div class="row g-4 mb-4">
                 <div class="col-md-4">
                     <label class="form-label text-muted small fw-bold">Assigned Doctor</label>
@@ -41,22 +43,26 @@ $admission_fee = 500 ;
                     <input type="date" name="admission_date" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" value="<?= date('Y-m-d') ?>" required>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label text-muted small fw-bold">Admission Fee (Tk)</label>
-                    <input type="number" name="admission_fee" class="form-control border-0 border-bottom rounded-0 shadow-none bg-white fw-bold" value="<?= $admission_fee ?>" required>
+                    <label class="form-label text-muted small fw-bold">Admission Fee to be Paid (Tk)</label>
+                    <input type="number" name="admission_fee" class="form-control border-0 border-bottom rounded-0 shadow-none bg-white fw-bold text-success" placeholder="Enter Amount Paid" required>
                 </div>
             </div>
 
             <h5 class="text-danger border-bottom pb-2 mb-4">New Patient Registration Details</h5>
-            <p class="text-muted small">This will create a new account for the patient using their email.</p>
-
             <div class="row g-4 mb-4">
                 <div class="col-md-6">
                     <label class="form-label text-muted small fw-bold">Patient Full Name</label>
                     <input type="text" name="name" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" placeholder="Enter Full Name" required>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label text-muted small fw-bold">Email Address (For Patient Login)</label>
-                    <input type="email" name="email" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" placeholder="example@mail.com" required>
+                    <label class="form-label text-muted small fw-bold">Email (Used for Login)</label>
+                    <input type="email" name="email" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" placeholder="patient@example.com" required>
+                    
+                    <input type="hidden" name="generated_password" value="<?= $fixed_password ?>">
+                    <div class="mt-2 p-2 bg-white border rounded">
+                        <small class="text-muted">Default Login Password: </small>
+                        <span class="badge bg-primary">123456</span>
+                    </div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label text-muted small fw-bold">Phone Number</label>
@@ -76,12 +82,12 @@ $admission_fee = 500 ;
                         <option>Male</option><option>Female</option><option>Other</option>
                     </select>
                 </div>
-            </div>
-<div class="col-md-6">
+                <div class="col-md-12">
                     <label class="form-label text-muted small fw-bold">Full Address</label>
                     <input type="text" name="address" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light">
                 </div>
             </div>
+
             <h5 class="text-danger border-bottom pb-2 mb-4">Guardian & Emergency Info</h5>
             <div class="row g-4 mb-4">
                 <div class="col-md-4">
@@ -98,35 +104,47 @@ $admission_fee = 500 ;
                 </div>
                 <div class="col-md-12">
                     <label class="form-label text-muted small fw-bold">Reason for Admission</label>
-                    <textarea name="reason" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" rows="2" required></textarea>
+                    <textarea name="reason" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" rows="2" ></textarea>
                 </div>
             </div>
 
-            <h5 class="text-danger border-bottom pb-2 mb-4">Accommodation (Bed/Cabin)</h5>
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <label class="form-label text-muted small fw-bold">Assign Bed or Cabin</label>
-                    <select name="bed_id" class="form-select border-0 border-bottom rounded-0 shadow-none bg-light" required>
-                        <option value="">-- Select Available Allocation --</option>
-                        <?php if($beds->num_rows > 0): ?>
-                            <?php while($b = $beds->fetch_assoc()): ?>
-                                <option value="<?= $b['bed_id'] ?>">
-                                    <?= strtoupper($b['ward_name']) ?> - <?= ($b['ward_name'] == 'Cabin') ? 'Cabin No' : 'Bed No' ?>: <?= $b['bed_number'] ?>
-                                </option>
-                            <?php endwhile; ?>
-                        <?php else: ?>
-                            <option value="">No Beds/Cabins Available</option>
-                        <?php endif; ?>
-                    </select>
+            <h5 class="text-primary border-bottom pb-2 mb-4"><i class="fas fa-wallet me-2"></i> Initial Payment Settlement</h5>
+            <div class="row g-4 mb-4 bg-white p-3 border rounded shadow-sm mx-0">
+                <div class="col-md-12">
+                    <label class="form-label text-muted small fw-bold d-block mb-3">Admission Fee Payment Method</label>
+                    <div class="d-flex gap-5">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="admission_pay_method" id="cash" value="Cash" checked>
+                            <label class="form-check-label fw-bold" for="cash"><i class="fas fa-money-bill-wave text-success"></i> Cash</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="admission_pay_method" id="card" value="Card">
+                            <label class="form-check-label fw-bold" for="card"><i class="fas fa-credit-card text-primary"></i> Card</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="admission_pay_method" id="bkash" value="bKash">
+                            <label class="form-check-label fw-bold text-danger" for="bkash">bKash</label>
+                        </div>
+                    </div>
                 </div>
-                
+            </div>
 
-            <div class="d-flex justify-content-end gap-3 mt-5">
+            <h5 class="text-danger border-bottom pb-2 mb-4">Accommodation</h5>
+            <div class="col-md-12 mb-4">
+                <label class="form-label text-muted small fw-bold">Assign Bed/Cabin</label>
+                <select name="bed_id" class="form-select border-0 border-bottom rounded-0 shadow-none bg-light" required>
+                    <option value="">-- Select Available --</option>
+                    <?php while($b = $beds->fetch_assoc()): ?>
+                        <option value="<?= $b['bed_id'] ?>"> <?= strtoupper($b['ward_name']) ?> - No: <?= $b['bed_number'] ?></option>
+                    <?php endwhile; ?>
+                </select>
+            </div>
+
+            <div class="d-flex justify-content-end gap-3">
                 <button type="reset" class="btn btn-secondary px-5 rounded-0">RESET</button>
-                <button type="submit" name="submit_admission" class="btn btn-danger px-5 rounded-0" style="background-color: #b31b1b;">SUBMIT & REGISTER</button>
+                <button type="submit" name="submit_admission" class="btn btn-danger px-5 rounded-0" style="background-color: #b31b1b;">CONFIRM ADMISSION & PAY</button>
             </div>
         </form>
     </div>
 </div>
-
 <?php include 'includes/footer.php'; ?>
