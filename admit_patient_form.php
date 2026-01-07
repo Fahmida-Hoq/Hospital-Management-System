@@ -7,13 +7,28 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['receptionist'
     header("Location: login.php"); exit();
 }
 
-// 1. Fetch Doctors
-$doctors = $conn->query("SELECT u.full_name, d.doctor_id, d.department FROM doctors d JOIN users u ON d.user_id = u.user_id");
+// Check if we are processing a specific request from an existing patient
+$is_request = false;
+$req_data = [];
+if (isset($_GET['request_id'])) {
+    $request_id = (int)$_GET['request_id'];
+    // JOIN with users table to get the current email if they are already registered
+    $req_sql = "SELECT ar.*, p.*, u.email FROM admission_requests ar 
+                JOIN patients p ON ar.patient_id = p.patient_id 
+                LEFT JOIN users u ON p.user_id = u.user_id
+                WHERE ar.request_id = $request_id";
+    $req_res = $conn->query($req_sql);
+    if ($req_res && $req_res->num_rows > 0) {
+        $req_data = $req_res->fetch_assoc();
+        $is_request = true;
+    }
+}
 
-// 2. Fetch Available Beds
+// Fetch Doctors & Available Beds
+$doctors = $conn->query("SELECT u.full_name, d.doctor_id, d.department FROM doctors d JOIN users u ON d.user_id = u.user_id");
 $beds = $conn->query("SELECT * FROM beds WHERE status = 'Available' ORDER BY ward_name ASC");
 
-// 3. Set a Fixed Password for all new patients
+// Set a Fixed Password
 $fixed_password = "123456";
 ?>
 
@@ -21,13 +36,21 @@ $fixed_password = "123456";
     <div class="card shadow-lg border-0">
         <div class="p-4 text-white" style="background-color: #b31b1b;">
             <div class="d-flex justify-content-between align-items-center">
-                <h2 class="mb-0 fw-bold">New Indoor Patient Registration & Admission</h2>
+                <h2 class="mb-0 fw-bold">
+                    <?= $is_request ? "Admit Existing Patient: " . htmlspecialchars($req_data['name']) : "New Indoor Patient Registration & Admission" ?>
+                </h2>
                 <i class="fas fa-hospital-user fa-3x opacity-50"></i>
             </div>
         </div>
 
         <form action="process_indoor_admission.php" method="POST" class="card-body p-5 bg-light">
             
+            <?php if($is_request): ?>
+                <input type="hidden" name="request_id" value="<?= $req_data['request_id'] ?>">
+                <input type="hidden" name="patient_id" value="<?= $req_data['patient_id'] ?>">
+                <input type="hidden" name="is_existing" value="1">
+            <?php endif; ?>
+
             <div class="row g-4 mb-4">
                 <div class="col-md-4">
                     <label class="form-label text-muted small fw-bold">Assigned Doctor</label>
@@ -48,30 +71,41 @@ $fixed_password = "123456";
                 </div>
             </div>
 
-            <h5 class="text-danger border-bottom pb-2 mb-4">New Patient Registration Details</h5>
+            <h5 class="text-danger border-bottom pb-2 mb-4">Patient Information</h5>
             <div class="row g-4 mb-4">
                 <div class="col-md-6">
                     <label class="form-label text-muted small fw-bold">Patient Full Name</label>
-                    <input type="text" name="name" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" placeholder="Enter Full Name" required>
+                    <input type="text" name="name" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" 
+                           value="<?= $is_request ? htmlspecialchars($req_data['name']) : '' ?>" required>
                 </div>
+                
                 <div class="col-md-6">
-                    <label class="form-label text-muted small fw-bold">Email (Used for Login)</label>
-                    <input type="email" name="email" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" placeholder="patient@example.com" required>
+                    <label class="form-label text-muted small fw-bold">Login Email (Auto-Generated/Confirmed)</label>
+                    <input type="email" name="email" class="form-control border-0 border-bottom rounded-0 shadow-none bg-white fw-bold" 
+                           value="<?= $is_request ? htmlspecialchars($req_data['email'] ?? '') : '' ?>" 
+                           placeholder="patient@example.com" required>
                     
                     <input type="hidden" name="generated_password" value="<?= $fixed_password ?>">
                     <div class="mt-2 p-2 bg-white border rounded">
-                        <small class="text-muted">Default Login Password: </small>
-                        <span class="badge bg-primary">123456</span>
+                        <small class="text-muted">The patient will use this email and password <span class="badge bg-primary">123456</span> to access Indoor Facilities.</small>
                     </div>
+                </div>
+     <div class="col-md-4">
+                    <label class="form-label text-muted small fw-bold">Age</label>
+                    <input type="text" name="age" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" 
+                           value="<?= $is_request ? htmlspecialchars($req_data['age']) : '' ?>" required>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label text-muted small fw-bold">Phone Number</label>
-                    <input type="text" name="phone" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" required>
+                    <input type="text" name="phone" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" 
+                           value="<?= $is_request ? htmlspecialchars($req_data['phone']) : '' ?>" required>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label text-muted small fw-bold">Blood Group</label>
                     <select name="blood_group" class="form-select border-0 border-bottom rounded-0 shadow-none bg-light">
-                        <option value="">Select</option>
+                        <option value="<?= $is_request ? $req_data['blood_group'] : '' ?>">
+                            <?= ($is_request && $req_data['blood_group']) ? $req_data['blood_group'] : 'Select' ?>
+                        </option>
                         <option>A+</option><option>B+</option><option>O+</option><option>AB+</option>
                         <option>A-</option><option>B-</option><option>O-</option><option>AB-</option>
                     </select>
@@ -79,12 +113,10 @@ $fixed_password = "123456";
                 <div class="col-md-4">
                     <label class="form-label text-muted small fw-bold">Gender</label>
                     <select name="gender" class="form-select border-0 border-bottom rounded-0 shadow-none bg-light">
-                        <option>Male</option><option>Female</option><option>Other</option>
+                        <option <?= ($is_request && $req_data['gender'] == 'Male') ? 'selected' : '' ?>>Male</option>
+                        <option <?= ($is_request && $req_data['gender'] == 'Female') ? 'selected' : '' ?>>Female</option>
+                        <option <?= ($is_request && $req_data['gender'] == 'Other') ? 'selected' : '' ?>>Other</option>
                     </select>
-                </div>
-                <div class="col-md-12">
-                    <label class="form-label text-muted small fw-bold">Full Address</label>
-                    <input type="text" name="address" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light">
                 </div>
             </div>
 
@@ -104,7 +136,7 @@ $fixed_password = "123456";
                 </div>
                 <div class="col-md-12">
                     <label class="form-label text-muted small fw-bold">Reason for Admission</label>
-                    <textarea name="reason" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" rows="2" ></textarea>
+                    <textarea name="reason" class="form-control border-0 border-bottom rounded-0 shadow-none bg-light" rows="2" ><?= $is_request ? htmlspecialchars($req_data['reason']) : '' ?></textarea>
                 </div>
             </div>
 
@@ -131,7 +163,7 @@ $fixed_password = "123456";
 
             <h5 class="text-danger border-bottom pb-2 mb-4">Accommodation</h5>
             <div class="col-md-12 mb-4">
-                <label class="form-label text-muted small fw-bold">Assign Bed/Cabin</label>
+                <label class="form-label text-muted small fw-bold">Assign Bed/Cabin (Suggested: <?= $is_request ? $req_data['suggested_ward'] : 'N/A' ?>)</label>
                 <select name="bed_id" class="form-select border-0 border-bottom rounded-0 shadow-none bg-light" required>
                     <option value="">-- Select Available --</option>
                     <?php while($b = $beds->fetch_assoc()): ?>

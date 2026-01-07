@@ -2,17 +2,24 @@
 session_start();
 include 'config/db.php';
 
-if (isset($_GET['adm_id']) && isset($_GET['bed_id'])) {
-    $adm_id = (int)$_GET['adm_id'];
-    $bed_id = (int)$_GET['bed_id'];
-    $total_amount = (float)$_GET['total'];
+// Changed from GET to POST to match the form in generate_bill.php
+if (isset($_POST['adm_id'])) {
+    $adm_id = (int)$_POST['adm_id'];
     $discharge_date = date('Y-m-d H:i:s');
 
-    // Start transaction to ensure all 3 steps happen together
+    // Start transaction to ensure all steps happen together
     $conn->begin_transaction();
 
     try {
-        // STEP 1: Update Admission Record
+        // 1. Fetch Admission details (Patient ID and Bed ID) before updating
+        $data_res = $conn->query("SELECT patient_id, bed_id FROM admissions WHERE admission_id = $adm_id");
+        if ($data_res->num_rows == 0) throw new Exception("Admission record not found.");
+        
+        $row = $data_res->fetch_assoc();
+        $p_id = $row['patient_id'];
+        $bed_id = $row['bed_id'];
+
+        // STEP 1: Update Admission Record status to 'Discharged'
         $sql_adm = "UPDATE admissions SET status = 'Discharged', discharge_date = '$discharge_date' WHERE admission_id = $adm_id";
         if (!$conn->query($sql_adm)) throw new Exception("Failed to update admission status");
 
@@ -20,17 +27,15 @@ if (isset($_GET['adm_id']) && isset($_GET['bed_id'])) {
         $sql_bed = "UPDATE beds SET status = 'Available' WHERE bed_id = $bed_id";
         if (!$conn->query($sql_bed)) throw new Exception("Failed to release bed");
 
-        // STEP 3: Update Billing status to 'paid'
-        // We look for the patient_id associated with this admission first
-        $patient_res = $conn->query("SELECT patient_id FROM admissions WHERE admission_id = $adm_id");
-        $patient_data = $patient_res->fetch_assoc();
-        $p_id = $patient_data['patient_id'];
-
-        $sql_bill = "UPDATE billing SET status = 'paid', amount = $total_amount WHERE patient_id = $p_id AND status = 'unpaid'";
+        // STEP 3: Ensure any remaining unpaid billing records for this patient are marked paid
+        // This is a safety step to clear the ledger for the discharged patient
+        $sql_bill = "UPDATE billing SET status = 'paid' WHERE patient_id = $p_id AND status = 'unpaid'";
         $conn->query($sql_bill);
 
         $conn->commit();
-        header("Location: view_indoor_patients.php?msg=Discharged successfully");
+        
+        // REDIRECT: To view_indoor_patient.php as requested
+        header("Location: view_indoor_patient.php?msg=Patient Discharged successfully");
         exit();
 
     } catch (Exception $e) {
@@ -38,6 +43,8 @@ if (isset($_GET['adm_id']) && isset($_GET['bed_id'])) {
         die("Discharge Error: " . $e->getMessage());
     }
 } else {
-    header("Location: view_indoor_patients.php");
+    // If accessed directly without ID, go back to the indoor records
+    header("Location: view_indoor_patient.php");
     exit();
 }
+?>

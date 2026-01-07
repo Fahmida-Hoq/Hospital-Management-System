@@ -11,14 +11,23 @@ if (isset($_SESSION['temp_adm']) && $_SESSION['temp_adm']['type'] == 'NEW_ADMISS
     $process_file = "process_indoor_admission.php"; 
     $title = "Admission Fee Payment (Advance)";
 } 
-// 2. Check if this is a PARTIAL PAYMENT or FINAL SETTLEMENT
+// 2. Check if this is an OUTDOOR PATIENT (Consultation or Lab)
+else if (isset($_SESSION['temp_appointment'])) {
+    $adm_id = 0; 
+    $amount = $_SESSION['temp_appointment']['amount'];
+    
+    // Allow user to toggle between bKash and Card on this page
+    $method = isset($_GET['method']) ? $_GET['method'] : 'bKash'; 
+    
+    $process_file = "book_appointment.php?payment_success=1&method=" . $method;
+    $title = "Outdoor Consultation Payment";
+}
+// 3. Check if this is a PARTIAL PAYMENT or FINAL SETTLEMENT
 else if (isset($_POST['pay_method'])) {
     $adm_id = $_POST['adm_id'];
     $amount = $_POST['total_amount'];
     $method = $_POST['pay_method'];
     $process_file = "process_payment_discharge.php";
-    
-    // Check if partial flag was sent from the modal
     $title = isset($_POST['is_partial']) ? "In-Stay Partial Payment" : "Final Settlement Payment";
 } 
 else {
@@ -39,6 +48,13 @@ else {
                         <small class="text-muted">Payable Amount</small>
                         <h2 class="fw-bold text-primary">BDT <?= number_format($amount, 2) ?></h2>
                     </div>
+
+                    <?php if (isset($_SESSION['temp_appointment'])): ?>
+                    <div class="btn-group w-100 mb-4" role="group">
+                        <a href="?method=bKash" class="btn <?= $method == 'bKash' ? 'btn-danger' : 'btn-outline-danger' ?>">bKash</a>
+                        <a href="?method=Card" class="btn <?= $method == 'Card' ? 'btn-primary' : 'btn-outline-primary' ?>">Credit Card</a>
+                    </div>
+                    <?php endif; ?>
 
                     <form action="<?= $process_file ?>" method="POST">
                         <input type="hidden" name="adm_id" value="<?= $adm_id ?>">

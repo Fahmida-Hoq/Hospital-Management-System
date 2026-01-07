@@ -15,6 +15,9 @@ $res = $conn->query($sql);
 $data = $res->fetch_assoc();
 $patient_id = $data['patient_id'];
 
+// Fetch the admission fee paid at registration
+$admission_fee_paid = (float)($data['admission_fee'] ?? 0);
+
 // 2. Bed Fee Calculations
 $days = (new DateTime($data['admission_date']))->diff(new DateTime(date('Y-m-d')))->days ?: 1;
 $total_bed_fee = $days * (($data['ward_name'] == 'ICU') ? 5000 : 1500);
@@ -32,16 +35,24 @@ while ($row = $lab_details_res->fetch_assoc()) {
 }
 
 $doctor_consultation = 500.00; 
-$running_gross_total = $total_bed_fee + $doctor_consultation + $total_lab_fee;
 
-// 4. Fetch ALL Payments (Dashboard Partial Payments + Admission Advance)
+// 4. Calculate Gross Total including Admission Fee as a billable item
+$running_gross_total = $total_bed_fee + $doctor_consultation + $total_lab_fee + $admission_fee_paid;
+
+// 5. FIX: Fetch Partial Payments but EXCLUDE the original Admission Fee amount
+// We use "amount != $admission_fee_paid" to ensure we don't count the registration fee twice.
 $pay_query = "SELECT SUM(amount) as total_paid FROM billing 
-              WHERE patient_id = $patient_id AND status = 'paid'";
+              WHERE patient_id = $patient_id 
+              AND status = 'paid' 
+              AND amount != $admission_fee_paid";
 $pay_res = $conn->query($pay_query);
 $pay_data = $pay_res->fetch_assoc();
-$total_already_paid = (float)($pay_data['total_paid'] ?? 0);
+$partial_paid = (float)($pay_data['total_paid'] ?? 0);
 
-// 5. Final Calculation
+// Total Already Paid = Admission Fee + ONLY extra payments
+$total_already_paid = $admission_fee_paid + $partial_paid;
+
+// 6. Final Calculation
 $balance_due = $running_gross_total - $total_already_paid;
 ?>
 
@@ -69,6 +80,11 @@ $balance_due = $running_gross_total - $total_already_paid;
                                 <td class="text-end"><?= number_format($doctor_consultation, 2) ?></td>
                             </tr>
 
+                            <tr>
+                                <td>Admission Registration Fee</td>
+                                <td class="text-end"><?= number_format($admission_fee_paid, 2) ?></td>
+                            </tr>
+
                             <?php if (!empty($lab_rows)): ?>
                                 <tr class="table-light"><td colspan="2"><small class="fw-bold text-muted text-uppercase">Laboratory Breakdown</small></td></tr>
                                 <?php foreach ($lab_rows as $lab): ?>
@@ -79,15 +95,24 @@ $balance_due = $running_gross_total - $total_already_paid;
                                 <?php endforeach; ?>
                             <?php endif; ?>
 
-                            <tr class="fw-bold border-top">
-                                <td>GROSS TOTAL (Current)</td>
+                            <tr class="fw-bold border-top h5">
+                                <td>GROSS TOTAL (Including Admission Fee)</td>
                                 <td class="text-end"><?= number_format($running_gross_total, 2) ?></td>
                             </tr>
-                            <tr class="text-success">
-                                <td>TOTAL PAID (Including Dashboard Payments)</td>
-                                <td class="text-end">- <?= number_format($total_already_paid, 2) ?></td>
+                            
+                            <tr class="text-success fw-bold">
+                                <td>LESS: Admission Fee (Already Paid)</td>
+                                <td class="text-end">- <?= number_format($admission_fee_paid, 2) ?></td>
                             </tr>
-                            <tr class="table-warning fw-bold h5">
+
+                            <?php if($partial_paid > 0): ?>
+                            <tr class="text-success fw-bold">
+                                <td>LESS: Other Partial Payments Paid</td>
+                                <td class="text-end">- <?= number_format($partial_paid, 2) ?></td>
+                            </tr>
+                            <?php endif; ?>
+
+                            <tr class="table-warning fw-bold h4">
                                 <td>NET BALANCE DUE</td>
                                 <td class="text-end text-danger">BDT <?= number_format(max(0, $balance_due), 2) ?></td>
                             </tr>
@@ -98,10 +123,10 @@ $balance_due = $running_gross_total - $total_already_paid;
                         <div class="alert alert-success d-flex align-items-center mt-4">
                             <i class="fas fa-check-circle fa-2x me-3"></i>
                             <div>
-                                <strong>Account Cleared!</strong> All payments (including partials) have been settled.
-                                <form action="process_discharge.php" method="POST" class="mt-2">
+                                <strong>Account Cleared!</strong>
+                                <form action="process_indoor_discharge.php" method="POST" class="mt-2">
                                     <input type="hidden" name="adm_id" value="<?= $adm_id ?>">
-                                    <button type="submit" class="btn btn-dark w-100">PROCEED TO DISCHARGE</button>
+                                    <button type="submit" class="btn btn-dark w-100 fw-bold">PROCEED TO DISCHARGE</button>
                                 </form>
                             </div>
                         </div>
@@ -131,7 +156,6 @@ $balance_due = $running_gross_total - $total_already_paid;
                                 <input type="number" name="total_amount" class="form-control form-control-lg fw-bold text-primary" 
                                        value="<?= ($balance_due > 0) ? $balance_due : 0 ?>" max="<?= ($balance_due > 0) ? $balance_due : 0 ?>" required>
                             </div>
-                            <small class="text-muted">Accept partial payments here if the patient is paying at the counter.</small>
                         </div>
 
                         <label class="form-label fw-bold small text-muted">Payment Method</label>

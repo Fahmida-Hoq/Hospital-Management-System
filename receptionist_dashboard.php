@@ -66,9 +66,7 @@ $unpaid_bills = safe_count("SELECT COUNT(*) FROM billing WHERE status='unpaid'")
         <div class="col-md-4">
             <a href="receptionist_manage_admissions.php" class="btn btn-success w-100">Manage Admissions</a>
         </div>
-        <div class="col-md-4">
-            <a href="receptionist_admitted_patients.php" class="btn btn-info w-100">View Admitted Patients</a>
-        </div>
+        
     </div>
 
     <div class="row mt-4 g-4">
