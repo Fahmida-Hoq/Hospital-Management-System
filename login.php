@@ -9,7 +9,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'];
     $password = $_POST['password'];
     
-    // Using your custom query function
+    // Fetch user from the main users table
     $sql = "SELECT user_id, full_name, password, role FROM users WHERE email = ?";
     $stmt = query($sql, [$email], "s");
     $result = $stmt->get_result();
@@ -17,68 +17,62 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
         
-        // Verify password
+        // Verify the hashed password
         if (password_verify($password, $user['password'])) {
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['email'] = $email;
             $_SESSION['full_name'] = $user['full_name']; 
             
-            // --- UPDATED REDIRECTION LOGIC ---
+            $uid = $user['user_id'];
+
+            // --- ROLE-BASED REDIRECTION & PROFILE FIX ---
             switch ($user['role']) {
                 case 'patient':
-                    $patient_sql = "SELECT patient_id FROM patients WHERE user_id = ?";
-                    $patient_stmt = query($patient_sql, [$user['user_id']], "i");
-                    $patient_result = $patient_stmt->get_result()->fetch_assoc();
-                    
-                    if ($patient_result) {
-                        $_SESSION['patient_id'] = $patient_result['patient_id'];
-                        header("Location: patient_dashboard.php");
-                        exit();
+                    $p_res = query("SELECT patient_id FROM patients WHERE user_id = ?", [$uid], "i")->get_result()->fetch_assoc();
+                    if (!$p_res) {
+                        // Creates profile entry using only user_id to avoid "Unknown column" errors
+                        query("INSERT INTO patients (user_id) VALUES (?)", [$uid], "i");
+                        $p_id = $conn->insert_id;
                     } else {
-                        $message = "<div class='alert alert-danger'>Patient profile missing.</div>";
+                        $p_id = $p_res['patient_id'];
                     }
-                    break;
+                    $_SESSION['patient_id'] = $p_id;
+                    header("Location: patient_dashboard.php");
+                    exit();
 
                 case 'doctor':
-                    $doctor_sql = "SELECT doctor_id FROM doctors WHERE user_id = ?";
-                    $doctor_stmt = query($doctor_sql, [$user['user_id']], "i");
-                    $doctor_result = $doctor_stmt->get_result()->fetch_assoc();
-                    
-                    if ($doctor_result) {
-                        // Crucial for Indoor Logic: Doctor needs their ID to see their assigned indoor patients
-                        $_SESSION['doctor_id'] = $doctor_result['doctor_id'];
-                        header("Location: doctor_dashboard.php"); 
-                        exit();
+                    $d_res = query("SELECT doctor_id FROM doctors WHERE user_id = ?", [$uid], "i")->get_result()->fetch_assoc();
+                    if (!$d_res) {
+                        // Fixes error in image_7b560a.png by not guessing name column
+                        query("INSERT INTO doctors (user_id) VALUES (?)", [$uid], "i");
+                        $d_id = $conn->insert_id;
                     } else {
-                        $message = "<div class='alert alert-danger'>Doctor profile missing.</div>";
+                        $d_id = $d_res['doctor_id'];
                     }
-                    break;
+                    $_SESSION['doctor_id'] = $d_id;
+                    header("Location: doctor_dashboard.php"); 
+                    exit();
                     
                 case 'labtech':
-                    $labtech_sql = "SELECT labtech_id FROM lab_technicians WHERE user_id = ?";
-                    $labtech_stmt = query($labtech_sql, [$user['user_id']], "i");
-                    $labtech_result = $labtech_stmt->get_result()->fetch_assoc();
-
-                    if ($labtech_result) {
-                        $_SESSION['labtech_id'] = $labtech_result['labtech_id'];
-                        header("Location: lab_dashboard.php"); 
-                        exit();
+                    $l_res = query("SELECT labtech_id FROM lab_technicians WHERE user_id = ?", [$uid], "i")->get_result()->fetch_assoc();
+                    if (!$l_res) {
+                        query("INSERT INTO lab_technicians (user_id) VALUES (?)", [$uid], "i");
+                        $l_id = $conn->insert_id;
                     } else {
-                         $message = "<div class='alert alert-danger'>Lab Tech profile missing.</div>";
+                        $l_id = $l_res['labtech_id'];
                     }
-                    break;
+                    $_SESSION['labtech_id'] = $l_id;
+                    header("Location: lab_dashboard.php"); 
+                    exit();
 
                 case 'receptionist': 
-                    // Receptionists manage the Inpatient Registry
                     header("Location: receptionist_dashboard.php");
                     exit();
-                    break;
 
                 case 'admin': 
-                    header("Location: admin.php");
+                    header("Location: admin_dashboard.php");
                     exit();
-                    break;
                     
                 default:
                     $message = "<div class='alert alert-warning'>Dashboard for {$user['role']} not configured.</div>";
@@ -106,21 +100,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 
                 <form method="post" action="login.php">
                     <div class="mb-3">
-                        <label for="email" class="form-label">Email address</label>
+                        <label for="email" class="form-label fw-bold">Email address</label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                            <input type="email" class="form-control" id="email" name="email" required>
+                            
+                            <input type="email" class="form-control" id="email" name="email" placeholder="Enter email" required>
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
+                        <label for="password" class="form-label fw-bold">Password</label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                            <input type="password" class="form-control" id="password" name="password" required>
+                            
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Enter password" required>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Login to System</button>
-                    <p class="text-center mt-3 small text-muted">Patient access? <a href="patient_register.php" class="text-decoration-none">Register here</a></p>
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-bold shadow-sm">Login to System</button>
                 </form>
             </div>
         </div>

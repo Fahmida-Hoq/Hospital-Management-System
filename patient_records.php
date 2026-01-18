@@ -62,7 +62,7 @@ $current_due = $total_charges - $total_paid;
 <div class="container my-5">
     <div class="row mb-4 align-items-center">
         <div class="col">
-            <h2 class="fw-bold">Patient Dashboard</h2>
+            <h2 class="fw-bold">Records</h2>
             <p class="text-muted">Welcome back, <?= htmlspecialchars($info['name']) ?></p>
         </div>
         <div class="col-auto">

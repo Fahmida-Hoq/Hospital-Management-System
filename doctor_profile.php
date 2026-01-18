@@ -11,8 +11,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
 $user_id = (int)$_SESSION['user_id'];
 $success = "";
 $errors = [];
-
-/*  FETCH DOCTOR INFO  */
 $sql = "
 SELECT d.*, u.full_name, u.email 
 FROM doctors d 
@@ -24,8 +22,6 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $doctor = $stmt->get_result()->fetch_assoc();
 $stmt->close();
-
-/* UPDATE PROFILE  */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $name = trim($_POST['full_name']);
@@ -40,19 +36,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
 
-        // update users table
+        
         $u = $conn->prepare("UPDATE users SET full_name=?, phone=? WHERE user_id=?");
         $u->bind_param("ssi", $name, $phone, $user_id);
         $u->execute();
         $u->close();
 
-        // update doctors table
         $d = $conn->prepare("UPDATE doctors SET specialization=?, experience=? WHERE user_id=?");
         $d->bind_param("ssi", $specialization, $experience, $user_id);
         $d->execute();
         $d->close();
 
-        // password update (optional)
         if ($password !== '') {
             $hash = password_hash($password, PASSWORD_DEFAULT);
             $p = $conn->prepare("UPDATE users SET password=? WHERE user_id=?");

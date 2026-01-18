@@ -2,9 +2,6 @@
 session_start();
 include 'config/db.php';
 include 'includes/header.php';
-
-
-// Role Security: Ensure only Doctors can access
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
     header("Location: login.php");
     exit();
@@ -13,9 +10,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
 $doctor_user_id = (int)$_SESSION['user_id'];
 $doctor_name = $_SESSION['full_name'] ?? 'Doctor';
 
-/* ======================
-    GET DOCTOR ID
-====================== */
 $res = $conn->query("SELECT doctor_id FROM doctors WHERE user_id=$doctor_user_id");
 if (!$res || $res->num_rows === 0) {
     echo "<div class='container my-5'><div class='alert alert-danger'>Doctor profile not found.</div></div>";
@@ -30,11 +24,8 @@ if ($patient_id <= 0) { header("Location: doctor_dashboard.php"); exit(); }
 $success = "";
 $errors = [];
 
-/* ==============================================
-    ACTION: ASSIGN SELECTIVE LAB TESTS (FIXED)
-============================================== */
 if (isset($_POST['assign_lab'])) {
-    // Get the current appointment ID
+    
     $appt_check = $conn->query("SELECT appointment_id FROM appointments WHERE patient_id = $patient_id ORDER BY appointment_id DESC LIMIT 1");
     $appt_row = $appt_check->fetch_assoc();
     $current_appt_id = $appt_row ? $appt_row['appointment_id'] : 0;
@@ -47,25 +38,20 @@ if (isset($_POST['assign_lab'])) {
     if (!empty($tests_to_insert)) {
         foreach ($tests_to_insert as $test_name) {
             $test_name = $conn->real_escape_string($test_name);
-            // UPDATED QUERY: Includes patient_id and appointment_id
           $sql = "INSERT INTO lab_tests 
 (patient_id, appointment_id, doctor_id, test_name, status, created_at)
 VALUES 
 ($patient_id, $current_appt_id, $doctor_id, '$test_name', 'pending', NOW())
 ";
-
             
             if (!$conn->query($sql)) {
-                echo "Error: " . $conn->error; // This will show you if any other columns are missing
+                echo "Error: " . $conn->error; 
             }
         }
         $success = "Lab tests ordered successfully!";
     }
 }
 
-/* =============================
-    ACTION: SAVE PRESCRIPTION (OPD FIXED)
-============================= */
 if (isset($_POST['prescribe'])) {
     $medicines = $_POST['med_name'] ?? [];
     $dosages = $_POST['med_dosage'] ?? [];
@@ -73,13 +59,11 @@ if (isset($_POST['prescribe'])) {
     $notes = $conn->real_escape_string($_POST['doctor_notes']);
     $diet = $conn->real_escape_string($_POST['diet_rules']);
 
-    // 1. Logic: Find the latest appointment to link this prescription to
     $appt_query = $conn->query("SELECT appointment_id FROM appointments 
                                 WHERE patient_id = $patient_id 
                                 AND doctor_id = $doctor_id 
                                 ORDER BY appointment_id DESC LIMIT 1");
     
-    // Check if appointment exists, else set to NULL
     if ($appt_query && $appt_query->num_rows > 0) {
         $appt_data = $appt_query->fetch_assoc();
         $appointment_id = $appt_data['appointment_id'];
@@ -87,7 +71,6 @@ if (isset($_POST['prescribe'])) {
         $appointment_id = "NULL"; 
     }
 
-    // 2. Format the medicine data
     $prescription_detail = "";
     for ($i = 0; $i < count($medicines); $i++) {
         if (!empty(trim($medicines[$i]))) {
@@ -97,16 +80,13 @@ if (isset($_POST['prescribe'])) {
         }
     }
 
-    // 3. Insert into Database
     if ($prescription_detail != "") {
-        // We do NOT wrap $appointment_id in quotes so it can be the word NULL
+        
         $sql = "INSERT INTO prescriptions (patient_id, doctor_id, appointment_id, prescribed_medicines, doctor_notes, diet_rules, created_at) 
                 VALUES ($patient_id, $doctor_id, $appointment_id, '$prescription_detail', '$notes', '$diet', NOW())";
         
         if($conn->query($sql)) {
             $success = "Prescription saved successfully!";
-            
-            // 4. Update Appointment status to 'Completed' automatically
             if($appointment_id !== "NULL") {
                 $conn->query("UPDATE appointments SET status='Completed' WHERE appointment_id=$appointment_id");
             }
@@ -117,10 +97,6 @@ if (isset($_POST['prescribe'])) {
         $errors[] = "Please add at least one medicine.";
     }
 }
-
-/* =============================
-   ACTION: ADMISSION REQUEST
-============================= */
 if (isset($_POST['suggest_admission'])) {
     $reason = $conn->real_escape_string($_POST['admission_reason']);
     $dept = $conn->real_escape_string($_POST['suggested_department']);
@@ -131,9 +107,6 @@ if (isset($_POST['suggest_admission'])) {
     if ($conn->query($sql)) { $success = "Admission request sent!"; }
 }
 
-/* =============================
-   FETCH DATA
-============================= */
 $p_query = $conn->query("SELECT p.*, COALESCE(u.full_name, p.name) AS patient_name FROM patients p LEFT JOIN users u ON p.user_id = u.user_id WHERE p.patient_id = $patient_id");
 $patient = $p_query->fetch_assoc();
 
@@ -256,14 +229,12 @@ $pending_admission = ($admit_res && $admit_res->num_rows > 0);
  <div class="mt-4">
     <h4>Lab Reports for this Patient</h4>
     <?php
-    // FIX: Define the missing variable by finding the latest appointment
     $appt_lookup = $conn->query("SELECT appointment_id FROM appointments 
                                 WHERE patient_id = $patient_id 
                                 ORDER BY appointment_id DESC LIMIT 1");
     
     $current_appt_id = ($appt_lookup && $appt_lookup->num_rows > 0) ? $appt_lookup->fetch_assoc()['appointment_id'] : 0;
 
-    // Only run query if we have an ID
     if ($current_appt_id > 0) {
         $doctor_lab = $conn->query("SELECT * FROM lab_tests WHERE appointment_id = $current_appt_id AND status = 'completed'");
         

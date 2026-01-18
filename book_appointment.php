@@ -2,7 +2,7 @@
 session_start();
 include 'config/db.php';
 
-// Check for login
+
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'patient') {
     header("Location: login.php");
     exit();
@@ -15,7 +15,7 @@ if (!isset($_SESSION['patient_id'])) {
 $patient_id = $_SESSION['patient_id'];
 $message = '';
 
-// --- STAGE 1: Redirect to Payment ---
+
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_appointment'])) {
     $doctor_id = $_POST['doctor_id'];
     $date = $_POST['scheduled_time'];
@@ -23,7 +23,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_appointment'])
     $consultation_fee = 500.00; 
 
     if (!empty($doctor_id) && !empty($date) && !empty($time)) {
-        // Save appointment data to session to be processed after payment
+  
         $_SESSION['temp_appointment'] = [
             'doctor_id' => $doctor_id,
             'scheduled_time' => $date,
@@ -32,7 +32,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_appointment'])
             'type' => 'OUTDOOR_CONSULTATION'
         ];
 
-        // Redirect to your payment gateway page
+        
         header("Location: payment_gateway.php");
         exit();
     } else {
@@ -40,7 +40,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_appointment'])
     }
 }
 
-// --- STAGE 2: Finalize Appointment (Called from Payment Gateway Success) ---
 if (isset($_GET['payment_success']) && isset($_SESSION['temp_appointment'])) {
     $data = $_SESSION['temp_appointment'];
     $pay_method = isset($_GET['method']) ? $_GET['method'] : 'Online';
@@ -48,20 +47,19 @@ if (isset($_GET['payment_success']) && isset($_SESSION['temp_appointment'])) {
     $conn->begin_transaction();
 
     try {
-        // 1. Insert into Appointments
+      
         $sql = "INSERT INTO appointments (patient_id, doctor_id, scheduled_time, appointment_time, status) VALUES (?, ?, ?, ?, 'confirmed')";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("iiss", $patient_id, $data['doctor_id'], $data['scheduled_time'], $data['appointment_time']);
         $stmt->execute();
 
-        // 2. Fetch Doctor Name
+   
         $doc_name_sql = "SELECT u.full_name FROM doctors d JOIN users u ON d.user_id = u.user_id WHERE d.doctor_id = ?";
         $d_stmt = $conn->prepare($doc_name_sql);
         $d_stmt->bind_param("i", $data['doctor_id']);
         $d_stmt->execute();
         $doctor_name = $d_stmt->get_result()->fetch_assoc()['full_name'];
 
-        // 3. Insert into Billing as PAID and OUTDOOR
         $bill_desc = "Consultation Fee (Paid) -  " . $doctor_name;
         $bill_sql = "INSERT INTO billing (patient_id, description, amount, status, bill_type, payment_method, billing_date) VALUES (?, ?, ?, 'Paid', 'Outdoor', ?, CURDATE())";
         $b_stmt = $conn->prepare($bill_sql);
@@ -76,8 +74,6 @@ if (isset($_GET['payment_success']) && isset($_SESSION['temp_appointment'])) {
         $message = "<div class='alert alert-danger'>Database Error: " . $e->getMessage() . "</div>";
     }
 }
-
-// Fetch doctors for dropdown
 $doctor_sql = "SELECT d.doctor_id, u.full_name, d.specialization FROM doctors d JOIN users u ON d.user_id = u.user_id ORDER BY u.full_name";
 $doctors = $conn->query($doctor_sql);
 

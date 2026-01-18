@@ -2,8 +2,6 @@
 session_start();
 include 'config/db.php';
 include 'includes/header.php';
-
-// 1. Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
@@ -11,11 +9,8 @@ if (!isset($_SESSION['user_id'])) {
 
 $u_id = $_SESSION['user_id']; 
 
-// 2. SAFETY FIX: Check if doctor exists before accessing data
 $doc_query = $conn->query("SELECT doctor_id FROM doctors WHERE user_id = '$u_id'");
 $doc_data = $doc_query->fetch_assoc();
-
-// If doc_data is null, it means a non-doctor (admin/recep) is trying to access this page
 if (!$doc_data) {
     echo "<div class='container my-5'><div class='alert alert-warning'>
             <h4>Access Restricted</h4>
@@ -27,8 +22,6 @@ if (!$doc_data) {
 }
 
 $doctor_id = $doc_data['doctor_id'];
-
-// 3. Fetch patients using the valid doctor_id
 $sql = "SELECT a.*, p.name as p_name, p.phone, b.ward_name, b.bed_number 
         FROM admissions a
         JOIN patients p ON a.patient_id = p.patient_id

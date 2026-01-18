@@ -6,13 +6,10 @@ include 'includes/header.php';
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['receptionist', 'admin'])) {
     header("Location: login.php"); exit();
 }
-
-// Check if we are processing a specific request from an existing patient
 $is_request = false;
 $req_data = [];
 if (isset($_GET['request_id'])) {
     $request_id = (int)$_GET['request_id'];
-    // JOIN with users table to get the current email if they are already registered
     $req_sql = "SELECT ar.*, p.*, u.email FROM admission_requests ar 
                 JOIN patients p ON ar.patient_id = p.patient_id 
                 LEFT JOIN users u ON p.user_id = u.user_id
@@ -23,12 +20,8 @@ if (isset($_GET['request_id'])) {
         $is_request = true;
     }
 }
-
-// Fetch Doctors & Available Beds
 $doctors = $conn->query("SELECT u.full_name, d.doctor_id, d.department FROM doctors d JOIN users u ON d.user_id = u.user_id");
 $beds = $conn->query("SELECT * FROM beds WHERE status = 'Available' ORDER BY ward_name ASC");
-
-// Set a Fixed Password
 $fixed_password = "123456";
 ?>
 

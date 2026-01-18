@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
 
 $user_id = (int)$_SESSION['user_id'];
 
-/* 1. Get doctor_id first */
+
 $stmt = $conn->prepare("SELECT doctor_id FROM doctors WHERE user_id=?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -21,21 +21,18 @@ if ($res->num_rows === 0) {
 $doctor_id = (int)$res->fetch_row()[0];
 $stmt->close();
 
-/* 2. HANDLE DELETE ACTION (This must be above the HTML) */
 if (isset($_GET['delete_id'])) {
     $appt_id = (int)$_GET['delete_id'];
-    
-    // We use the $doctor_id we found above to ensure security
+
     $delete_query = "DELETE FROM appointments WHERE appointment_id = $appt_id AND doctor_id = $doctor_id";
     
     if ($conn->query($delete_query)) {
-        // Redirect back to refresh the list
+        
         header("Location: doctor_appointments.php?msg=Deleted");
         exit();
     }
 }
 
-/* 3. Fetch Appointments for the table */
 $sql = "
 SELECT a.appointment_id, a.scheduled_time, a.status,
        COALESCE(u.full_name, p.name) AS patient_name, p.patient_id

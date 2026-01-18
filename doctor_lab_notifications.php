@@ -2,17 +2,12 @@
 session_start();
 include 'config/db.php';
 include 'includes/header.php';
-
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
     header("Location: login.php");
     exit();
 }
 
 $doctor_user_id = (int)$_SESSION['user_id'];
-
-/* ======================
-   GET DOCTOR ID (Same logic as dashboard)
-====================== */
 $doctor_id = 0;
 $stmt = $conn->prepare("SELECT doctor_id FROM doctors WHERE user_id = ?");
 if ($stmt) {
@@ -22,12 +17,7 @@ if ($stmt) {
     $doctor_id = (int)($r['doctor_id'] ?? 0);
     $stmt->close();
 }
-
-/* ======================
-   FETCH COMPLETED LABS
-====================== */
 $reports = [];
-// We look for tests matching this doctor's ID that are completed
 $stmt = $conn->prepare("
     SELECT l.*, p.name as patient_name 
     FROM lab_tests l 
