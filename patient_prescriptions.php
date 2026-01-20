@@ -1,170 +1,111 @@
 <?php
 session_start();
 include 'config/db.php';
-include 'includes/header.php';
 
-if (!isset($_SESSION['patient_id'])) {
+if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
 
-$patient_id = (int)$_SESSION['patient_id'];
+$u_id = (int)$_SESSION['user_id'];
 
-// Fetch all prescriptions. 
-// Note: If your DB has a 'doctor_id', we join with 'users' to get the doctor's name properly.
-$sql = "SELECT p.*, u.full_name as dr_name 
-        FROM prescriptions p 
+/**
+ * THE COMPLETE FIX:
+ * 1. Finds the patient_id for the logged-in user.
+ * 2. Joins prescriptions to BOTH appointments and admissions.
+ * 3. Joins to doctors/users to get the specific doctor's name for THAT record.
+ */
+$sql = "SELECT 
+            p.*, 
+            u_dr.full_name AS dr_name
+        FROM prescriptions p
+        INNER JOIN patients pat ON p.patient_id = pat.patient_id
         LEFT JOIN doctors d ON p.doctor_id = d.doctor_id
-        LEFT JOIN users u ON d.user_id = u.user_id
-        WHERE p.patient_id = $patient_id 
-        ORDER BY p.date_prescribed DESC";
+        LEFT JOIN users u_dr ON d.user_id = u_dr.user_id
+        WHERE pat.user_id = $u_id
+        ORDER BY p.date_prescribed DESC, p.prescription_id DESC";
 
 $pres_result = $conn->query($sql);
 ?>
 
-<style>
-    :root {
-        --rx-blue: #1a237e;
-        --rx-light: #f8f9fa;
-    }
-    body { background-color: #f0f2f5; }
-    
-    .prescription-paper {
-        background: white;
-        border-radius: 15px;
-        border: none;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .prescription-header {
-        border-bottom: 2px solid var(--rx-blue);
-        padding-bottom: 15px;
-        margin-bottom: 20px;
-    }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Patient Prescription History</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
+        .rx-container { max-width: 850px; margin: auto; background: #fff; border: 1px solid #000; padding: 40px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .hospital-header { text-align: center; border-bottom: 3px double #000; padding-bottom: 15px; margin-bottom: 30px; }
+        .rx-symbol { font-size: 45px; font-family: serif; font-weight: bold; margin: 0; line-height: 1; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background: #eee; border: 1px solid #000; padding: 12px; text-align: left; font-size: 14px; }
+        td { border: 1px solid #000; padding: 15px; vertical-align: top; }
+        
+        .medicine-name { font-size: 18px; font-weight: bold; color: #d9534f; margin-bottom: 5px; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; background: #e9ecef; border: 1px solid #ccc; }
+        
+        .back-btn { display: inline-block; margin-bottom: 15px; text-decoration: none; color: #000; font-weight: bold; border: 1px solid #000; padding: 5px 15px; }
+        .back-btn:hover { background: #000; color: #fff; }
+    </style>
+</head>
+<body>
 
-    .rx-symbol {
-        font-family: "Times New Roman", Times, serif;
-        font-size: 45px;
-        font-weight: bold;
-        color: var(--rx-blue);
-        line-height: 1;
-    }
+<div class="rx-container">
+    <a href="patient_dashboard.php" class="back-btn">← DASHBOARD</a>
 
-    .medicine-row {
-        background: var(--rx-light);
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 15px;
-        border-left: 5px solid var(--rx-blue);
-    }
-
-    .doctor-sig {
-        font-family: 'Dancing Script', cursive; /* Optional: adds a handwritten feel */
-        font-size: 20px;
-        color: #555;
-    }
-
-    .watermark {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 120px;
-        color: rgba(26, 35, 126, 0.03);
-        pointer-events: none;
-        user-select: none;
-        font-weight: bold;
-    }
-    
-    @media print {
-        .no-print { display: none; }
-        body { background: white; }
-        .prescription-paper { box-shadow: none; border: 1px solid #ddd; }
-    }
-</style>
-
-<div class="container my-5">
-    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
-        <h3 class="fw-bold text-dark"><i class="fas fa-file-medical me-2 text-primary"></i> Pharmacy Records</h3>
-        <div>
-            <button onclick="window.print()" class="btn btn-dark shadow-sm me-2">
-                <i class="fas fa-print me-1"></i> Print Rx
-            </button>
-            <a href="patient_dashboard.php" class="btn btn-outline-secondary">Dashboard</a>
-        </div>
+    <div class="hospital-header">
+        <h1 style="margin:0; letter-spacing: 2px;">HMS</h1>
+        <p style="margin:5px 0; color: #666;">Medication History </p>
     </div>
 
-    <?php if ($pres_result && $pres_result->num_rows > 0): ?>
-        <div class="row justify-content-center">
-            <?php while($p = $pres_result->fetch_assoc()): ?>
-                <div class="col-lg-8 mb-5">
-                    <div class="prescription-paper p-4 p-md-5">
-                        <div class="watermark">HMS</div>
-                        
-                        <div class="prescription-header d-flex justify-content-between align-items-start">
-                            <div>
-                                <h4 class="fw-bold text-primary mb-0">HOSPITAL MANAGEMENT SYSTEM</h4>
-                                <p class="small text-muted mb-0">24/7 Medical Care & Diagnostic Center</p>
-                                <p class="small text-muted">Contact: +880 1234 567890</p>
-                            </div>
-                            <div class="text-end">
-                                <h5 class="mb-0 fw-bold">Prescription Slip</h5>
-                                <p class="small text-muted">Date: <?= date('d M, Y', strtotime($p['date_prescribed'])) ?></p>
-                            </div>
-                        </div>
 
-                        <div class="row mb-4">
-                            <div class="col-6">
-                                <small class="text-uppercase text-muted d-block">Doctor</small>
-                                <strong class="text-dark">Dr. <?= htmlspecialchars($p['dr_name'] ?? $p['doctor_name']) ?></strong>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 18%;">Date</th>
+                 <th style="width: 55%;">Prescription Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if ($pres_result && $pres_result->num_rows > 0): ?>
+                <?php while($row = $pres_result->fetch_assoc()): ?>
+                    <tr>
+                        <td>
+                            <strong><?= date('d M, Y', strtotime($row['date_prescribed'])) ?></strong><br>
+                            <?php if(!empty($row['admission_id'])): ?>
+                                <span class="badge">In-Patient</span>
+                            <?php else: ?>
+                                <span class="badge">Out-Patient</span>
+                            <?php endif; ?>
+                        </td>
+                       
+                        <td>
+                            <div class="medicine-name"><?= htmlspecialchars($row['prescribed_medicines']) ?></div>
+                            <div style="font-size: 14px; margin-top: 10px;">
+                                <strong>Instructions:</strong> <?= htmlspecialchars($row['doctor_notes'] ?: 'None') ?>
                             </div>
-                            <div class="col-6 text-end">
-                                <small class="text-uppercase text-muted d-block">Ref ID</small>
-                                <strong class="text-dark">#RX-<?= $p['prescription_id'] ?></strong>
-                            </div>
-                        </div>
+                            
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <tr>
+                    <td colspan="3" style="text-align: center; padding: 50px;">
+                        No medication records found for your account.
+                    </td>
+                </tr>
+            <?php endif; ?>
+        </tbody>
+    </table>
 
-                        <div class="rx-symbol mb-3">℞</div>
-
-                        <div class="medicine-row shadow-sm">
-                            <div class="row align-items-center">
-                                <div class="col-md-7">
-                                    <h5 class="fw-bold mb-1 text-navy"><?= htmlspecialchars($p['medicine_name']) ?></h5>
-                                    <p class="mb-0 text-muted">
-                                        <i class="fas fa-info-circle me-1 small"></i> 
-                                        <?= htmlspecialchars($p['instructions']) ?>
-                                    </p>
-                                </div>
-                                <div class="col-md-5 text-md-end mt-3 mt-md-0">
-                                    <span class="badge bg-primary px-3 py-2 mb-1"><?= htmlspecialchars($p['dosage']) ?></span>
-                                    <div class="small fw-bold text-dark">Duration: <?= htmlspecialchars($p['duration']) ?></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mt-5 pt-4">
-                            <div class="col-6 mt-4">
-                                <p class="small text-muted mb-0">This prescription is valid for the mentioned duration.</p>
-                            </div>
-                            <div class="col-6 text-center">
-                                <div class="doctor-sig mb-0">Dr. <?= htmlspecialchars($p['dr_name'] ?? $p['doctor_name']) ?></div>
-                                <hr class="mt-0 mb-1 w-75 mx-auto">
-                                <small class="text-muted">Authorized Signature</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            <?php endwhile; ?>
+    <div style="margin-top: 60px; text-align: right;">
+        <div style="display: inline-block; border-top: 1px solid #000; width: 200px; text-align: center; padding-top: 5px; font-size: 14px;">
+            Authorized Signature
         </div>
-    <?php else: ?>
-        <div class="text-center py-5">
-            <i class="fas fa-pills fa-4x text-light mb-3"></i>
-            <h4 class="text-muted">No medications found in your history.</h4>
-            <p class="text-muted">New prescriptions will appear here once updated by your doctor.</p>
-        </div>
-    <?php endif; ?>
+    </div>
 </div>
 
-<?php include 'includes/footer.php'; ?>
+</body>
+</html>

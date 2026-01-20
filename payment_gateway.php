@@ -3,26 +3,27 @@ session_start();
 include 'config/db.php';
 include 'includes/header.php';
 
-// 1. Check if this is a NEW ADMISSION (Initial Registration)
-if (isset($_SESSION['temp_adm']) && $_SESSION['temp_adm']['type'] == 'NEW_ADMISSION') {
+// Safe check using null coalescing (??)
+$temp_adm = $_SESSION['temp_adm'] ?? [];
+$temp_app = $_SESSION['temp_appointment'] ?? [];
+
+// 1. Check NEW ADMISSION
+if (($temp_adm['type'] ?? '') == 'NEW_ADMISSION') {
     $adm_id = 0; 
-    $amount = $_SESSION['temp_adm']['admission_fee'];
-    $method = $_SESSION['temp_adm']['pay_method'];
+    $amount = $temp_adm['admission_fee'];
+    $method = $temp_adm['pay_method'];
     $process_file = "process_indoor_admission.php"; 
     $title = "Admission Fee Payment (Advance)";
 } 
-// 2. Check if this is an OUTDOOR PATIENT (Consultation or Lab)
-else if (isset($_SESSION['temp_appointment'])) {
+// 2. Check OUTDOOR
+else if (!empty($temp_app)) {
     $adm_id = 0; 
-    $amount = $_SESSION['temp_appointment']['amount'];
-    
-    // Allow user to toggle between bKash and Card on this page
-    $method = isset($_GET['method']) ? $_GET['method'] : 'bKash'; 
-    
+    $amount = $temp_app['amount'];
+    $method = $_GET['method'] ?? 'bKash'; 
     $process_file = "book_appointment.php?payment_success=1&method=" . $method;
     $title = "Outdoor Consultation Payment";
 }
-// 3. Check if this is a PARTIAL PAYMENT or FINAL SETTLEMENT
+// 3. Check DISCHARGE/PARTIAL
 else if (isset($_POST['pay_method'])) {
     $adm_id = $_POST['adm_id'];
     $amount = $_POST['total_amount'];

@@ -11,9 +11,7 @@ if (!isset($_SESSION['patient_id'])) {
 $patient_id = $_SESSION['patient_id'];
 
 /**
- * 
- * This query checks if the patient has an active admission record.
- * If 'status' is 'admitted', it pulls Ward and Bed info automatically.
+ * 1. Fetch Patient Info & Admission Status
  */
 $info_sql = "SELECT p.*, a.admission_id, a.admission_date, a.admission_fee, b.ward_name, b.bed_number 
              FROM patients p 
@@ -27,23 +25,20 @@ $adm_id = $info['admission_id'] ?? 0;
 $admission_reg_fee = (float)($info['admission_fee'] ?? 0);
 
 /**
- * 2. INTEGRATED BILLING CALCULATOR (Indoor + Outdoor)
+ * 2. INTEGRATED BILLING CALCULATOR
  */
 $total_charges = 0;
 $bed_fee = 0;
 $doc_fee = 0;
 
-// Calculate Indoor Charges (Only if Admitted)
 if ($adm_id > 0) {
     $days = (new DateTime($info['admission_date']))->diff(new DateTime(date('Y-m-d')))->days ?: 1;
     $bed_rate = (strpos($info['ward_name'], 'ICU') !== false) ? 5000 : 1500;
     $bed_fee = $days * $bed_rate;
-    $doc_fee = 500.00; // Daily Consultation Fee
-    
+    $doc_fee = 500.00; 
     $total_charges += ($bed_fee + $doc_fee + $admission_reg_fee);
 }
 
-// Calculate Outdoor Charges (Lab Tests)
 $lab_query = "SELECT SUM(test_fees) as total FROM lab_tests WHERE patient_id = $patient_id AND status = 'completed'";
 $lab_data = $conn->query($lab_query)->fetch_assoc();
 $total_lab = (float)($lab_data['total'] ?? 0);
@@ -63,7 +58,7 @@ $current_due = $total_charges - $total_paid;
     <div class="row mb-4 align-items-center">
         <div class="col">
             <h2 class="fw-bold">Records</h2>
-            <p class="text-muted">Welcome back, <?= htmlspecialchars($info['name']) ?></p>
+            <p class="text-muted">Welcome back, <?= htmlspecialchars($info['name'] ?? 'Patient') ?></p>
         </div>
         <div class="col-auto">
             <?php if($adm_id > 0): ?>
@@ -117,13 +112,13 @@ $current_due = $total_charges - $total_paid;
                 <div class="card-body p-4">
                     <div class="row align-items-center">
                         <div class="col">
-                            <h6 class="text-uppercase small opacity-75">Net Balance Due (Indoor + Outdoor)</h6>
+                            <h6 class="text-uppercase small opacity-75">Net Balance Due</h6>
                             <h1 class="display-5 fw-bold">TK <?= number_format(max(0, $current_due), 2) ?></h1>
-                            <p class="small text-info mb-0">Total Bill: TK <?= number_format($total_charges, 2) ?> | Total Paid: TK <?= number_format($total_paid, 2) ?></p>
+                            <p class="small text-info mb-0">Total Bill: TK <?= number_format($total_charges, 2) ?> | Paid: TK <?= number_format($total_paid, 2) ?></p>
                         </div>
                         <div class="col-auto">
                             <?php if($current_due > 0): ?>
-                                <button class="btn btn-success btn-lg px-5 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#payOnlineModal">
+                                <button type="button" class="btn btn-success btn-lg px-5 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#payOnlineModal">
                                     PAY ONLINE
                                 </button>
                             <?php else: ?>
@@ -138,14 +133,20 @@ $current_due = $total_charges - $total_paid;
             </div>
 
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white fw-bold py-3 border-bottom">Full Bill Breakdown & Payment History</div>
+                <div class="card-header bg-white fw-bold py-3 border-bottom">Bill Breakdown & History</div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
-                            <tr><th>Date</th><th>Service Description</th><th>Type</th><th class="text-end">Amount</th></tr>
+                            <tr><th>Date</th><th>Service</th><th>Type</th><th class="text-end">Amount</th></tr>
                         </thead>
                         <tbody>
                             <?php if($adm_id > 0): ?>
+                                <tr>
+                                    <td><?= date('d M, Y', strtotime($info['admission_date'])) ?></td>
+                                    <td>Admission Registration Fee</td>
+                                    <td><span class="badge bg-warning-subtle text-warning border">Indoor</span></td>
+                                    <td class="text-end fw-bold">TK <?= number_format($admission_reg_fee, 2) ?></td>
+                                </tr>
                                 <tr>
                                     <td><?= date('d M, Y', strtotime($info['admission_date'])) ?></td>
                                     <td>Bed Charges (<?= $info['ward_name'] ?>)</td>
@@ -154,37 +155,19 @@ $current_due = $total_charges - $total_paid;
                                 </tr>
                                 <tr>
                                     <td><?= date('d M, Y') ?></td>
-                                    <td>Daily Service & Consultation Fee</td>
+                                    <td>Consultation Fee</td>
                                     <td><span class="badge bg-warning-subtle text-warning border">Indoor</span></td>
                                     <td class="text-end fw-bold">TK <?= number_format($doc_fee, 2) ?></td>
                                 </tr>
-                                <tr>
-                                    <td><?= date('d M, Y', strtotime($info['admission_date'])) ?></td>
-                                    <td>Admission Registration Fee</td>
-                                    <td><span class="badge bg-warning-subtle text-warning border">Indoor</span></td>
-                                    <td class="text-end fw-bold">TK <?= number_format($admission_reg_fee, 2) ?></td>
-                                </tr>
                             <?php endif; ?>
-
                             <?php 
                             $lab_bills = $conn->query("SELECT * FROM lab_tests WHERE patient_id = $patient_id AND status = 'completed'");
                             while($lb = $lab_bills->fetch_assoc()): ?>
                                 <tr>
                                     <td><?= date('d M, Y', strtotime($lb['created_at'])) ?></td>
-                                    <td>Lab Test: <?= $lb['test_name'] ?></td>
+                                    <td>Lab: <?= $lb['test_name'] ?></td>
                                     <td><span class="badge bg-info-subtle text-info border">Outdoor</span></td>
                                     <td class="text-end fw-bold">TK <?= number_format($lb['test_fees'], 2) ?></td>
-                                </tr>
-                            <?php endwhile; ?>
-
-                            <?php 
-                            $history = $conn->query("SELECT * FROM billing WHERE patient_id = $patient_id AND status = 'paid' ORDER BY billing_date DESC");
-                            while($h = $history->fetch_assoc()): ?>
-                                <tr class="table-success-subtle">
-                                    <td><?= date('d M, Y', strtotime($h['billing_date'])) ?></td>
-                                    <td class="fw-bold"><?= $h['description'] ?> (<?= $h['payment_method'] ?>)</td>
-                                    <td><span class="badge bg-success">Paid</span></td>
-                                    <td class="text-end fw-bold text-success">- TK <?= number_format($h['amount'], 2) ?></td>
                                 </tr>
                             <?php endwhile; ?>
                         </tbody>
@@ -195,13 +178,13 @@ $current_due = $total_charges - $total_paid;
     </div>
 </div>
 
-<div class="modal fade" id="payOnlineModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="payOnlineModal" tabindex="-1" aria-labelledby="payOnlineModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <form action="process_payment_discharge.php" method="POST">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title">Secure Online Payment</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="payOnlineModalLabel">Online Payment</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
                     <input type="hidden" name="patient_id" value="<?= $patient_id ?>">
@@ -223,3 +206,5 @@ $current_due = $total_charges - $total_paid;
         </div>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php include 'includes/footer.php'; ?>

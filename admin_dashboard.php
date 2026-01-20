@@ -81,19 +81,6 @@ $total_revenue = $conn->query("SELECT SUM(amount) FROM billing WHERE status = 'p
             <div class="card h-100 border-0 shadow-sm">
                 <div class="card-body text-center p-4">
                     <div class="rounded-circle bg-light d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
-                        <i class="fas fa-file-invoice-dollar fa-2x text-danger"></i>
-                    </div>
-                    <h5 class="fw-bold">Financial Reports</h5>
-                    <p class="text-muted small">Monitor total hospital revenue collection.</p>
-                    <a href="admin_revenue_report.php" class="btn btn-outline-danger w-100 rounded-pill">Financial Reports</a>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body text-center p-4">
-                    <div class="rounded-circle bg-light d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
                         <i class="fas fa-hospital fa-2x text-info"></i>
                     </div>
                     <h5 class="fw-bold">Inventory & Rooms</h5>
