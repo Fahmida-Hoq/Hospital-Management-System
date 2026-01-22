@@ -5,7 +5,6 @@ include 'includes/header.php';
 
 $adm_id = (int)$_GET['adm_id'];
 
-// 1. Get Admission, Patient, and Bed Data
 $sql = "SELECT a.*, p.name, p.patient_id, b.ward_name, b.bed_number 
         FROM admissions a 
         JOIN patients p ON a.patient_id = p.patient_id
@@ -14,15 +13,14 @@ $sql = "SELECT a.*, p.name, p.patient_id, b.ward_name, b.bed_number
 $res = $conn->query($sql);
 $data = $res->fetch_assoc();
 $patient_id = $data['patient_id'];
+$admission_date = $data['admission_date'];
 
-// Fetch the admission fee paid at registration
+
 $admission_fee_paid = (float)($data['admission_fee'] ?? 0);
 
-// 2. Bed Fee Calculations
-$days = (new DateTime($data['admission_date']))->diff(new DateTime(date('Y-m-d')))->days ?: 1;
+$days = (new DateTime($admission_date))->diff(new DateTime(date('Y-m-d')))->days ?: 1;
 $total_bed_fee = $days * (($data['ward_name'] == 'ICU') ? 5000 : 1500);
 
-// 3. Detailed Lab Fees Fetching
 $lab_details_query = "SELECT test_name, test_fees FROM lab_tests 
                       WHERE patient_id = $patient_id AND status = 'completed'";
 $lab_details_res = $conn->query($lab_details_query);
@@ -34,25 +32,27 @@ while ($row = $lab_details_res->fetch_assoc()) {
     $total_lab_fee += (float)$row['test_fees'];
 }
 
+
+$appt_query = "SELECT COUNT(*) as total_appts FROM appointments 
+               WHERE patient_id = $patient_id 
+               AND scheduled_time >= '$admission_date' 
+               AND status = 'Confirmed'";
+$appt_res = $conn->query($appt_query);
+$appt_data = $appt_res->fetch_assoc();
+$extra_appointments_count = (int)$appt_data['total_appts'];
+$total_appt_fees = $extra_appointments_count * 500.00; 
+
 $doctor_consultation = 500.00; 
+$running_gross_total = $total_bed_fee + $doctor_consultation + $total_lab_fee + $admission_fee_paid + $total_appt_fees;
 
-// 4. Calculate Gross Total including Admission Fee as a billable item
-$running_gross_total = $total_bed_fee + $doctor_consultation + $total_lab_fee + $admission_fee_paid;
-
-// 5. FIX: Fetch Partial Payments but EXCLUDE the original Admission Fee amount
-// We use "amount != $admission_fee_paid" to ensure we don't count the registration fee twice.
 $pay_query = "SELECT SUM(amount) as total_paid FROM billing 
               WHERE patient_id = $patient_id 
-              AND status = 'paid' 
-              AND amount != $admission_fee_paid";
+              AND status = 'Paid'";
 $pay_res = $conn->query($pay_query);
 $pay_data = $pay_res->fetch_assoc();
-$partial_paid = (float)($pay_data['total_paid'] ?? 0);
+$total_already_paid = (float)($pay_data['total_paid'] ?? 0);
 
-// Total Already Paid = Admission Fee + ONLY extra payments
-$total_already_paid = $admission_fee_paid + $partial_paid;
 
-// 6. Final Calculation
 $balance_due = $running_gross_total - $total_already_paid;
 ?>
 
@@ -76,9 +76,16 @@ $balance_due = $running_gross_total - $total_already_paid;
                             </tr>
                             
                             <tr>
-                                <td>Standard Consultation & Daily Service Fee</td>
+                                <td>Standard Admission Consultation Fee</td>
                                 <td class="text-end"><?= number_format($doctor_consultation, 2) ?></td>
                             </tr>
+
+                            <?php if($extra_appointments_count > 0): ?>
+                            <tr>
+                                <td>Extra Doctor Consultations (<?= $extra_appointments_count ?> visits)</td>
+                                <td class="text-end"><?= number_format($total_appt_fees, 2) ?></td>
+                            </tr>
+                            <?php endif; ?>
 
                             <tr>
                                 <td>Admission Registration Fee</td>
@@ -96,21 +103,14 @@ $balance_due = $running_gross_total - $total_already_paid;
                             <?php endif; ?>
 
                             <tr class="fw-bold border-top h5">
-                                <td>GROSS TOTAL (Including Admission Fee)</td>
+                                <td>GROSS TOTAL BILLABLE</td>
                                 <td class="text-end"><?= number_format($running_gross_total, 2) ?></td>
                             </tr>
                             
                             <tr class="text-success fw-bold">
-                                <td>LESS: Admission Fee (Already Paid)</td>
-                                <td class="text-end">- <?= number_format($admission_fee_paid, 2) ?></td>
+                                <td>TOTAL PAID TO DATE (Incl. Appointments & Reg)</td>
+                                <td class="text-end">- <?= number_format($total_already_paid, 2) ?></td>
                             </tr>
-
-                            <?php if($partial_paid > 0): ?>
-                            <tr class="text-success fw-bold">
-                                <td>LESS: Other Partial Payments Paid</td>
-                                <td class="text-end">- <?= number_format($partial_paid, 2) ?></td>
-                            </tr>
-                            <?php endif; ?>
 
                             <tr class="table-warning fw-bold h4">
                                 <td>NET BALANCE DUE</td>
@@ -121,7 +121,6 @@ $balance_due = $running_gross_total - $total_already_paid;
 
                     <?php if($balance_due <= 0): ?>
                         <div class="alert alert-success d-flex align-items-center mt-4">
-                            <i class="fas fa-check-circle fa-2x me-3"></i>
                             <div>
                                 <strong>Account Cleared!</strong>
                                 <form action="process_indoor_discharge.php" method="POST" class="mt-2">
@@ -132,7 +131,7 @@ $balance_due = $running_gross_total - $total_already_paid;
                         </div>
                     <?php else: ?>
                         <div class="alert alert-info mt-4">
-                            <i class="fas fa-info-circle me-2"></i> Note: Discharge button will be enabled once the Balance Due is 0.00.
+                            Note: Discharge button will be enabled once the Balance Due is 0.00.
                         </div>
                     <?php endif; ?>
                 </div>
@@ -174,9 +173,7 @@ $balance_due = $running_gross_total - $total_already_paid;
                             </label>
                         </div>
 
-                        <button type="submit" class="btn btn-success btn-lg w-100 shadow-sm fw-bold">
-                            PROCESS PAYMENT
-                        </button>
+                        <button type="submit" class="btn btn-success btn-lg w-100 shadow-sm fw-bold">PROCESS PAYMENT</button>
                     </form>
                 </div>
             </div>

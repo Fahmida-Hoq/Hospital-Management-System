@@ -12,13 +12,37 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'patient') {
 $patient_id = $_SESSION['patient_id'];
 $patient_name = htmlspecialchars($_SESSION['full_name'] ?? 'Patient');
 
-// 1. Fetch Current Admission Info
+// --- START NEW LOGIC: Fetch Latest Appointment for Print Slip ---
+$print_id = null;
+$stmt_latest = $conn->prepare("SELECT appointment_id FROM appointments WHERE patient_id = ? AND status = 'confirmed' ORDER BY scheduled_time DESC, appointment_time DESC LIMIT 1");
+$stmt_latest->bind_param("i", $patient_id);
+$stmt_latest->execute();
+$res_latest = $stmt_latest->get_result();
+if($row_latest = $res_latest->fetch_assoc()){
+    $print_id = $row_latest['appointment_id'];
+}
+$stmt_latest->close();
+// --- UPDATED LOGIC: Fetch All Confirmed Appointments ---
+$appointments_list = [];
+$stmt_all = $conn->prepare("SELECT a.appointment_id, a.scheduled_time, a.appointment_time, u_dr.full_name as doctor_name 
+                             FROM appointments a 
+                             JOIN doctors d ON a.doctor_id = d.doctor_id 
+                             JOIN users u_dr ON d.user_id = u_dr.user_id 
+                             WHERE a.patient_id = ? AND a.status = 'confirmed' 
+                             ORDER BY a.scheduled_time DESC");
+$stmt_all->bind_param("i", $patient_id);
+$stmt_all->execute();
+$res_all = $stmt_all->get_result();
+while($row = $res_all->fetch_assoc()){
+    $appointments_list[] = $row;
+}
+$stmt_all->close();
+
 $stmt = $conn->prepare("SELECT status, ward, bed, admission_date FROM patients WHERE patient_id = ?");
 $stmt->bind_param("i", $patient_id);
 $stmt->execute();
 $p_data = $stmt->get_result()->fetch_assoc();
 
-// 2. Fetch Billing Summary
 $bill_res = $conn->query("SELECT SUM(amount) as due FROM billing WHERE patient_id = $patient_id AND status = 'Unpaid'");
 $bill_data = $bill_res->fetch_assoc();
 $total_due = $bill_data['due'] ?? 0;
@@ -64,8 +88,8 @@ $total_due = $bill_data['due'] ?? 0;
         font-size: 28px;
     }
     
-    .bg-soft-white { background-color: #e3f2fd; color: #ffffffff; }
-    .bg-soft-white { background-color: #e8eaf6; color: #ffffffff; }
+    .bg-soft-blue { background-color: #e3f2fd; color: #2196f3; }
+    .bg-soft-indigo { background-color: #e8eaf6; color: #3f51b5; }
     .bg-soft-teal { background-color: #e0f2f1; color: #00897b; }
 
     .status-badge {
@@ -85,6 +109,17 @@ $total_due = $bill_data['due'] ?? 0;
         letter-spacing: 0.5px;
         font-size: 13px;
     }
+
+    .print-link {
+        font-size: 13px;
+        font-weight: bold;
+        color: #00897b;
+        text-decoration: none;
+        display: block;
+        margin-top: 10px;
+        transition: opacity 0.2s;
+    }
+    .print-link:hover { opacity: 0.8; }
 </style>
 
 <div class="hero-section shadow-lg">
@@ -172,12 +207,58 @@ $total_due = $bill_data['due'] ?? 0;
                 <h5 class="fw-bold text-dark">Prescriptions</h5>
                 <p class="text-muted small px-3">Check active medications and dosages assigned by your physician.</p>
                 <div class="mt-auto">
-                    <a href="patient_prescriptions.php" class="btn btn-teal btn-action w-100 shadow-sm text-white" style="background-color: #00897b;">View Pharmacy</a>
+                    <a href="patient_prescriptions.php" class="btn btn-teal btn-action w-100 shadow-sm text-white mb-2" style="background-color: #00897b;">View Pharmacy</a>
                 </div>
             </div>
         </div>
-    </div>
 
-   
+       
+
+           <div class="col-md-12 mt-4">
+    <div class="dashboard-card card shadow-sm p-4 h-100">
+        <div class="d-flex align-items-center mb-3">
+            <div class="icon-box bg-soft-teal mb-0 me-3" style="width: 50px; height: 50px; font-size: 20px;">
+                <i class="fas fa-file-invoice"></i>
+            </div>
+            <h5 class="fw-bold text-dark mb-0">Consultation Payment Slips</h5>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Consultant (Doctor)</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (!empty($appointments_list)): ?>
+                        <?php foreach ($appointments_list as $app): ?>
+                            <tr>
+                                <td>
+                                    <span class="fw-bold"><?= date('d M Y', strtotime($app['scheduled_time'])) ?></span><br>
+                                    <small class="text-muted"><?= date('h:i A', strtotime($app['appointment_time'])) ?></small>
+                                </td>
+                                <td> <?= htmlspecialchars($app['doctor_name']) ?></td>
+                                <td class="text-end">
+                                    <a href="print_appointment.php?id=<?= $app['appointment_id'] ?>" target="_blank" class="btn btn-sm btn-outline-teal">
+                                        <i class="fas fa-print me-1"></i> Print Slip
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="3" class="text-center py-3 text-muted">No consultation history found.</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+    </div>
+</div>
 
 <?php include 'includes/footer.php'; ?>

@@ -10,9 +10,7 @@ if (!isset($_SESSION['patient_id'])) {
 
 $patient_id = $_SESSION['patient_id'];
 
-/**
- * 1. Fetch Patient Info & Admission Status
- */
+
 $info_sql = "SELECT p.*, a.admission_id, a.admission_date, a.admission_fee, b.ward_name, b.bed_number 
              FROM patients p 
              LEFT JOIN admissions a ON p.patient_id = a.patient_id AND a.status = 'admitted'
@@ -23,10 +21,6 @@ $info = $info_res->fetch_assoc();
 
 $adm_id = $info['admission_id'] ?? 0;
 $admission_reg_fee = (float)($info['admission_fee'] ?? 0);
-
-/**
- * 2. INTEGRATED BILLING CALCULATOR
- */
 $total_charges = 0;
 $bed_fee = 0;
 $doc_fee = 0;
@@ -44,9 +38,7 @@ $lab_data = $conn->query($lab_query)->fetch_assoc();
 $total_lab = (float)($lab_data['total'] ?? 0);
 $total_charges += $total_lab;
 
-/**
- * 3. PAYMENT SYNC
- */
+
 $pay_query = "SELECT SUM(amount) as total_paid FROM billing WHERE patient_id = $patient_id AND status = 'paid'";
 $pay_data = $conn->query($pay_query)->fetch_assoc();
 $total_paid = (float)($pay_data['total_paid'] ?? 0);

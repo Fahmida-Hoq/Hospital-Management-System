@@ -5,7 +5,7 @@ include 'includes/header.php';
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') { header("Location: login.php"); exit(); }
 
-// Handle User Deletion
+
 if (isset($_GET['delete'])) {
     $id = $_GET['delete'];
     $conn->query("DELETE FROM users WHERE user_id = $id");

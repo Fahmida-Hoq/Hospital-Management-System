@@ -2,14 +2,13 @@
 session_start();
 include 'config/db.php';
 
-// Ensure ID is passed
 if (!isset($_GET['adm_id'])) {
     die("Admission ID missing.");
 }
 
 $adm_id = (int)$_GET['adm_id'];
 
-// 1. Fetch detailed data
+
 $sql = "SELECT a.*, p.patient_id, p.name as p_name, p.phone, p.address, 
                u.full_name as dr_name, b.ward_name, b.bed_number 
         FROM admissions a 
@@ -26,33 +25,32 @@ if (!$res || $res->num_rows == 0) {
 $data = $res->fetch_assoc();
 $p_id = $data['patient_id'];
 
-// 2. Stay Duration Logic
+
 $date_admitted = new DateTime($data['admission_date']);
 $date_today = new DateTime(date('Y-m-d'));
 $diff = $date_admitted->diff($date_today);
 $days_stayed = $diff->days > 0 ? $diff->days : 1; 
 
-// 3. Pricing Logic
+
 $bed_rate = ($data['ward_name'] == 'ICU') ? 5000 : 1500; 
 $total_bed_cost = $days_stayed * $bed_rate;
 $doctor_consultation = 500;
 
-// 4. Lab Tests (Detailed Breakdown)
+
 $lab_sql = "SELECT test_name as description, test_fees as amount 
             FROM lab_tests 
             WHERE patient_id = $p_id AND status = 'completed'";
 $lab_results = $conn->query($lab_sql);
 $total_lab_cost = 0;
 
-// 5. NEW: Fetch ALL Payments made (Advance + Dashboard Partials)
 $pay_query = "SELECT SUM(amount) as total_paid FROM billing 
               WHERE patient_id = $p_id AND status = 'paid'";
 $pay_res = $conn->query($pay_query);
 $pay_data = $pay_res->fetch_assoc();
 $total_already_paid = (float)($pay_data['total_paid'] ?? 0);
 
-// 6. Final Totals
-$gross_total = $total_bed_cost + $doctor_consultation; // We will add lab cost inside the loop
+
+$gross_total = $total_bed_cost + $doctor_consultation; 
 ?>
 
 <!DOCTYPE html>

@@ -3,7 +3,7 @@ session_start();
 include 'config/db.php';
 
 if (isset($_POST['submit_admission'])) {
-    // Save all form data into a SESSION so we can use it AFTER payment
+   
     $_SESSION['temp_adm'] = [
         'name' => mysqli_real_escape_string($conn, $_POST['name']),
         'email' => mysqli_real_escape_string($conn, $_POST['email']),
@@ -19,11 +19,11 @@ if (isset($_POST['submit_admission'])) {
         'reason' => mysqli_real_escape_string($conn, $_POST['reason']),
         'address' => mysqli_real_escape_string($conn, $_POST['address']),
         'admission_date' => $_POST['admission_date'],
-        'password' => $_POST['generated_password'], // The random password
-        'type' => 'NEW_ADMISSION' // To tell the gateway this is an admission
+        'password' => $_POST['generated_password'], 
+        'type' => 'NEW_ADMISSION' 
     ];
 
-    // Redirect to Payment Gateway
+ 
     header("Location: payment_gateway.php");
     exit();
 } else {

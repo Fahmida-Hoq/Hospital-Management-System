@@ -6,7 +6,7 @@ include 'includes/header.php';
 $adm_id = (int)$_GET['adm_id'];
 $method = $_GET['method'];
 
-// Fetch patient info for receipt
+
 $res = $conn->query("SELECT p.name FROM admissions a JOIN patients p ON a.patient_id = p.patient_id WHERE a.admission_id = $adm_id");
 $p = $res->fetch_assoc();
 ?>

@@ -65,9 +65,7 @@ $result = $conn->query($sql);
     <a href="manage_indoor_treatment.php?adm_id=<?= $row['admission_id'] ?>&patient_id=<?= $row['patient_id'] ?>" class="btn btn-sm btn-primary px-3">
         <i class="fas fa-folder-open"></i> Open Patient Record
     </a>
-</td>
-                            
-                        
+</td>         
                     </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
@@ -82,5 +80,12 @@ $result = $conn->query($sql);
         </table>
     </div>
 </div>
+
+<div class= "contaiiner-5"> 
+    
+                </div>
+    
+
+        
 
 <?php include 'includes/footer.php'; ?>

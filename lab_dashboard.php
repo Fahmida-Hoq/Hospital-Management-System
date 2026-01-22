@@ -3,7 +3,7 @@ session_start();
 include 'config/db.php';
 include 'includes/header.php';
 
-// Ensure the user is authorized
+
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['lab', 'labtech'])) {
     header("Location: login.php");
     exit();
@@ -11,7 +11,6 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['lab', 'labtec
 
 $lab_name = htmlspecialchars($_SESSION['full_name'] ?? 'Lab Tech');
 
-// ===== FIXED COUNTERS =====
 $pending_res = $conn->query("
     SELECT COUNT(*) 
     FROM lab_tests lt

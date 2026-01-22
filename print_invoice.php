@@ -4,11 +4,10 @@ include 'config/db.php';
 
 $p_id = $_GET['id'];
 
-// Fetch Patient and Admission Details
+
 $p_query = $conn->query("SELECT * FROM patients WHERE patient_id = $p_id");
 $p = $p_query->fetch_assoc();
 
-// Fetch All Paid Charges
 $bill_query = $conn->query("SELECT * FROM billing WHERE patient_id = $p_id");
 ?>
 

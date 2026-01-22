@@ -14,15 +14,20 @@ if (isset($_GET['department']) && !empty($_GET['department'])) {
     $params[] = $_GET['department'];
     $types = 's';
     $page_title = htmlspecialchars($_GET['department']) . " Specialists";
-   // $filter_message = "<p class='lead'>Showing doctors in the **" . htmlspecialchars($_GET['department']) . "** department.</p>";
 } else {
     $filter_message = "<p class='lead'>Browse our full list of specialists below.</p>";
 }
+
+// FIX: Changed 'available_day' to 'day_of_week' based on common schema errors
+// Also added error handling so the page doesn't go blank if the query fails
 $sql = "SELECT 
             u.full_name, 
             d.specialization, 
             d.department, 
-            d.doctor_id 
+            d.doctor_id,
+            (SELECT GROUP_CONCAT(CONCAT(day_of_week, ': ', TIME_FORMAT(start_time, '%h:%i %p'), '-', TIME_FORMAT(end_time, '%h:%i %p')) SEPARATOR '<br>') 
+             FROM doctor_schedules 
+             WHERE doctor_id = d.doctor_id) as schedule
         FROM 
             doctors d
         JOIN 
@@ -31,7 +36,11 @@ $sql = "SELECT
         ORDER BY 
             u.full_name";
 
-$stmt = query($sql, $params, $types);
+$stmt = $conn->prepare($sql);
+if ($params) {
+    $stmt->bind_param($types, ...$params);
+}
+$stmt->execute();
 $doctors = $stmt->get_result();
 ?>
 
@@ -43,7 +52,7 @@ $doctors = $stmt->get_result();
     
     <?php echo $filter_message; ?>
     <div class="row row-cols-1 row-cols-md-3 g-4 mt-4">
-        <?php if ($doctors->num_rows > 0): ?>
+        <?php if ($doctors && $doctors->num_rows > 0): ?>
             <?php while($doctor = $doctors->fetch_assoc()): ?>
             <div class="col">
                 <div class="card h-100 shadow-sm border-0 text-center">
@@ -52,18 +61,25 @@ $doctors = $stmt->get_result();
                         <h5 class="card-title text-danger fw-bold"><?php echo htmlspecialchars($doctor['full_name']); ?></h5>
                         
                         <p class="card-text">
-                            **Specialization:** <span class="badge bg-success"><?php echo htmlspecialchars($doctor['specialization']); ?></span><br>
-                            **Department:** <span class="badge bg-primary"><?php echo htmlspecialchars($doctor['department']); ?></span>
+                            <strong>Specialization:</strong> <span class="badge bg-success"><?php echo htmlspecialchars($doctor['specialization']); ?></span><br>
+                            <strong>Department:</strong> <span class="badge bg-primary"><?php echo htmlspecialchars($doctor['department']); ?></span>
                         </p>
+
+                        <div class="mt-3 p-2 border rounded bg-light">
+                            <h6 class="fw-bold mb-1" style="font-size: 0.9rem;"><i class="fas fa-calendar-alt me-1"></i> Availability</h6>
+                            <div class="text-muted small">
+                                <?php echo $doctor['schedule'] ? $doctor['schedule'] : "No schedule set"; ?>
+                            </div>
+                        </div>
                         
-                        <a href="book_appointment.php?doctor_id=<?php echo $doctor['doctor_id']; ?>" 
-                           class="btn btn-success mt-2">Check Availability & Book</a>
+                        <a href="login.php?doctor_id=<?php echo $doctor['doctor_id']; ?>" 
+                           class="btn btn-success mt-3">Check Availability & Book</a>
                     </div>
                 </div>
             </div>
             <?php endwhile; ?>
         <?php else: ?>
-            <div class="col-12">
+            <div class="col-12 text-center">
                 <div class="alert alert-warning">No doctors found matching the criteria.</div>
             </div>
         <?php endif; ?>

@@ -16,7 +16,7 @@ $bed            = $_POST['bed'];
 
 $conn->begin_transaction();
 
-/* CONVERT OPD → IPD */
+
 $conn->query("
     UPDATE patients SET
         patient_type='Indoor',
@@ -31,7 +31,7 @@ $conn->query("
     WHERE patient_id=$patient_id
 ");
 
-/* CLOSE REQUEST */
+
 $conn->query("
     UPDATE admission_requests
     SET request_status='Admitted'

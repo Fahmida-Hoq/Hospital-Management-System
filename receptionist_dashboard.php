@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'receptionist') {
 
 $receptionist_name = htmlspecialchars($_SESSION['full_name'] ?? 'Reception Staff');
 
-// Helper function to safely run queries and prevent Fatal Errors if tables are missing
+
 function safe_count($sql) {
     global $conn;
     $res = $conn->query($sql);
@@ -18,10 +18,10 @@ function safe_count($sql) {
         $row = $res->fetch_row();
         return $row[0] ?? 0;
     }
-    return 0; // Return 0 if query fails
+    return 0; 
 }
 
-/* --- STATS SECTION --- */
+
 $appointments_today = safe_count("SELECT COUNT(*) FROM appointments WHERE status='confirmed' AND DATE(scheduled_time)=CURDATE()");
 $pending_admissions = safe_count("SELECT COUNT(*) FROM admission_requests WHERE request_status='Pending Reception'");
 $total_admitted = safe_count("SELECT COUNT(*) FROM admissions WHERE status='Admitted'");
@@ -62,22 +62,9 @@ $unpaid_bills = safe_count("SELECT COUNT(*) FROM billing WHERE status='unpaid'")
         <div class="col-md-4">
             <a href="receptionist_manage_admissions.php" class="btn btn-success w-100">Manage Admissions</a>
         </div>
-        
     </div>
-
-    <div class="row mt-4 g-4">
-        <div class="col-md-4">
-            <div class="card bg-danger text-white shadow h-100">
-                <div class="card-body">
-                    <h5>Emergency Desk</h5>
-                    <p class="small">Admit a patient immediately without an appointment.</p>
-                    <a href="receptionist_emergency_admission.php" class="btn btn-light btn-sm fw-bold">
-                        <i class="fas fa-ambulance"></i> Open Emergency Form
-                    </a>
-                </div>
-            </div>
-        </div>
-
+    <hr class="my-5">
+<div class="row g-4">
         <div class="col-md-4">
             <div class="card bg-dark text-white shadow h-100">
                 <div class="card-body">
@@ -88,9 +75,12 @@ $unpaid_bills = safe_count("SELECT COUNT(*) FROM billing WHERE status='unpaid'")
                     </a>
                 </div>
             </div>
-        </div>
+         </div>
+    
 
-        <div class="col-md-4">
+       
+       
+         <div class="col-md-4">
             <div class="card bg-secondary text-white shadow h-100">
                 <div class="card-body">
                     <h5>Indoor Patient Registry</h5>
@@ -101,7 +91,6 @@ $unpaid_bills = safe_count("SELECT COUNT(*) FROM billing WHERE status='unpaid'")
                 </div>
             </div>
         </div>
-    </div>
 </div>
 
 <?php include 'includes/footer.php'; ?>

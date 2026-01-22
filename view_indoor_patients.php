@@ -3,7 +3,6 @@ session_start();
 include 'config/db.php';
 include 'includes/header.php';
 
-// SQL joins everything: Patients, Admissions, Doctors (via Users), and Beds
 $sql = "SELECT a.*, p.name as p_name, u.full_name as dr_name, b.bed_number, b.ward_name 
         FROM admissions a 
         JOIN patients p ON a.patient_id = p.patient_id 

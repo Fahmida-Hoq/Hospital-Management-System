@@ -2,13 +2,13 @@
 include 'config/db.php';
 include 'includes/header.php'; 
 
-// Fetch unique hospital departments
+
 $dept_sql = "SELECT DISTINCT department FROM doctors ORDER BY department ASC";
 $dept_result = query($dept_sql)->get_result();
 $departments = $dept_result->fetch_all(MYSQLI_ASSOC);
 ?>
 
-<!-- HERO SECTION -->
+
 <div class="container my-5">
     <div class="p-5 mb-4 bg-light rounded-4 shadow-sm border">
         <div class="container-fluid py-5">
@@ -16,13 +16,11 @@ $departments = $dept_result->fetch_all(MYSQLI_ASSOC);
             <p class="col-md-8 fs-4 text-muted">
                 Your health matters. Explore departments and check doctor availability anytime.
             </p>
-            <!--<a href="#departments" class="btn btn-primary btn-lg mt-3 px-4">
-                Explore Departments
-            </a>-->
+           
         </div>
     </div>
 
-    <!-- FEATURE: HOSPITAL DEPARTMENTS -->
+   
     <h2 class="mb-4 text-center fw-bold text-secondary" id="departments">
         Hospital Departments
     </h2>

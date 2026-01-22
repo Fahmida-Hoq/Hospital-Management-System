@@ -6,10 +6,10 @@ include 'includes/header.php';
 $message = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $email = trim($_POST['email']); // Trim to remove accidental spaces
+    $email = trim($_POST['email']); 
     $password = $_POST['password'];
     
-    // 1. FIRST ATTEMPT: Check the main users table
+
     $sql = "SELECT user_id, full_name, password, role FROM users WHERE email = ?";
     $stmt = query($sql, [$email], "s");
     $result = $stmt->get_result();
@@ -17,7 +17,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
         
-        // Check 1: If it's a hashed password OR a plain text password
         if (password_verify($password, $user['password']) || $password === $user['password']) {
             
             $_SESSION['user_id'] = $user['user_id'];
@@ -79,15 +78,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $message = "<div class='alert alert-danger'>Invalid email or password.</div>";
         }
     } else {
-        // 2. SECOND ATTEMPT (THE FIX): Check patients table directly 
-        // This handles cases where the receptionist added them to 'patients' but not 'users'
+      
         $sql_p = "SELECT * FROM patients WHERE email = ?";
         $stmt_p = query($sql_p, [$email], "s");
         $result_p = $stmt_p->get_result();
 
         if ($result_p->num_rows === 1) {
             $patient = $result_p->fetch_assoc();
-            // Check if password matches plain text '12345' or whatever was stored
+            
             if ($password === $patient['password'] || $password === '12345') {
                 $_SESSION['role'] = 'patient';
                 $_SESSION['patient_id'] = $patient['patient_id'];

@@ -108,9 +108,10 @@ if ($stmt) {
 
     <div class="row g-3 mb-4">
         <div class="col-md-3"><a href="doctor_appointments.php" class="btn btn-outline-primary w-100 py-2">My Appointments</a></div>
-        <div class="col-md-3"><a href="doctor_patients.php" class="btn btn-outline-success w-100 py-2">My Patients</a></div>
-        <div class="col-md-3"><a href="doctor_lab_notifications.php" class="btn btn-outline-warning w-100 py-2">Lab Notifications</a></div>
-        <div class="col-md-3"><a href="doctor_profile.php" class="btn btn-outline-dark w-100 py-2">Edit Profile</a></div>
+
+        
+        <div class="col-md-3"><a href="doctor_lab_notifications.php" class="btn btn-outline-primary w-100 py-2">Lab Notifications</a></div>
+       
     </div>
 <div class="col-md-4">
     <div class="card border-0 shadow-sm bg-danger text-white p-3">

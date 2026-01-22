@@ -17,26 +17,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $role = $conn->real_escape_string($_POST['role']);
     $specialization = $conn->real_escape_string($_POST['specialization'] ?? 'General');
 
-    // Check if email already exists
+   
     $check = $conn->query("SELECT user_id FROM users WHERE email = '$email'");
     if ($check->num_rows > 0) {
         $message = "<div class='alert alert-danger'>Email already exists!</div>";
     } else {
-        // Step 1: Add to users table
+        
         $sql = "INSERT INTO users (full_name, email, password, role) VALUES ('$full_name', '$email', '$password', '$role')";
         
         if ($conn->query($sql)) {
-            $new_user_id = $conn->insert_id; // Get the ID we just created
+            $new_user_id = $conn->insert_id; 
 
-            // Step 2: Create the specific profile based on role
+            
             if ($role === 'doctor') {
                 $conn->query("INSERT INTO doctors (user_id, name, specialization) VALUES ('$new_user_id', '$full_name', '$specialization')");
             } 
             elseif ($role === 'lab_technician') {
-                // Ensure you have a lab_technicians table with a user_id column
+                
                 $conn->query("INSERT INTO lab_technicians (user_id, name) VALUES ('$new_user_id', '$full_name')");
             }
-            // For receptionists, they usually only need the users table record to access the dashboard.
+            .
 
             $message = "<div class='alert alert-success fw-bold text-center'>New $role added successfully! They can now log in.</div>";
         } else {

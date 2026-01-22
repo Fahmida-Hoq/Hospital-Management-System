@@ -8,9 +8,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
     header("Location: login.php"); exit();
 }
 
-/** * MASTER QUERY: Connects Admissions, Patients, Doctors, and Users
- * This matches your exact database structure.
- */
 $sql = "SELECT a.*, p.name as p_name, u.full_name as dr_name, b.bed_number, b.ward_name 
         FROM admissions a 
         JOIN patients p ON a.patient_id = p.patient_id 

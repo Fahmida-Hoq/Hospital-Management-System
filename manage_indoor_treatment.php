@@ -6,7 +6,6 @@ include 'includes/header.php';
 $adm_id = (int)$_GET['adm_id'];
 $p_id = (int)$_GET['patient_id'];
 
-// Fetch Admission & Patient Info
 $sql = "SELECT a.*, p.name as p_name, b.ward_name, b.bed_number 
         FROM admissions a 
         JOIN patients p ON a.patient_id = p.patient_id 

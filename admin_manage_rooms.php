@@ -2,12 +2,6 @@
 session_start();
 include 'config/db.php';
 include 'includes/header.php';
-
-/**
- * LOGIC FOR YOUR DATABASE:
- * 1. We pull 'ward_name', 'bed_number', and 'status' directly from your 'beds' table.
- * 2. We JOIN 'admissions' and 'patients' ONLY to show the name of the person in 'Occupied' beds.
- */
 $query = "SELECT 
             b.bed_id, 
             b.ward_name, 

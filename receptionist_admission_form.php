@@ -5,13 +5,13 @@ include 'includes/header.php';
 
 $request_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-// Fetch Patient and Request Details
+
 $stmt = $conn->prepare("SELECT ar.*, p.name FROM admission_requests ar JOIN patients p ON ar.patient_id = p.patient_id WHERE ar.request_id = ?");
 $stmt->bind_param("i", $request_id);
 $stmt->execute();
 $data = $stmt->get_result()->fetch_assoc();
 
-// Fetch AVAILABLE Beds
+
 $beds = $conn->query("SELECT * FROM beds WHERE status = 'Available'");
 
 if (!$data) {

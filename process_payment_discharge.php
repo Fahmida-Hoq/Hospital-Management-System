@@ -8,13 +8,12 @@ if (isset($_POST['confirm_final_payment'])) {
     $amount = (float)$_POST['total_amount'];
     $method = $_POST['pay_method'];
     
-    // Check if the user is a Patient (logged in via portal) or an Admin
     $is_patient_portal = isset($_SESSION['patient_id']) && !isset($_SESSION['user_id']);
 
-    // Check if this is a partial payment (from the hidden input we added in generate_bill or patient portal)
+    
     $is_partial = isset($_SESSION['is_partial_payment']) || (isset($_POST['is_partial']) && $_POST['is_partial'] == '1');
 
-    // 1. Record the Payment in the billing table
+    
     $pat_res = $conn->query("SELECT patient_id, bed_id FROM admissions WHERE admission_id = $adm_id");
     $pat_data = $pat_res->fetch_assoc();
     $patient_id = $pat_data['patient_id'];
@@ -26,7 +25,7 @@ if (isset($_POST['confirm_final_payment'])) {
     if ($conn->query($sql_pay)) {
         
         if ($is_partial) {
-            // CASE A: PARTIAL PAYMENT (Keep patient admitted)
+            
             ?>
             <div class="container my-5 text-center">
                 <div class="card shadow-lg border-0 p-5 mx-auto" style="max-width: 550px; border-radius: 20px;">
@@ -55,7 +54,7 @@ if (isset($_POST['confirm_final_payment'])) {
             </div>
             <?php
         } else {
-            // CASE B: FINAL SETTLEMENT (Discharge the patient)
+            
             $conn->query("UPDATE beds SET status = 'available' WHERE bed_id = $bed_id");
             $conn->query("UPDATE admissions SET status = 'discharged', discharge_date = NOW() WHERE admission_id = $adm_id");
 

@@ -3,11 +3,11 @@ session_start();
 include 'config/db.php';
 include 'includes/header.php';
 
-// Safe check using null coalescing (??)
+
 $temp_adm = $_SESSION['temp_adm'] ?? [];
 $temp_app = $_SESSION['temp_appointment'] ?? [];
 
-// 1. Check NEW ADMISSION
+
 if (($temp_adm['type'] ?? '') == 'NEW_ADMISSION') {
     $adm_id = 0; 
     $amount = $temp_adm['admission_fee'];
@@ -15,7 +15,7 @@ if (($temp_adm['type'] ?? '') == 'NEW_ADMISSION') {
     $process_file = "process_indoor_admission.php"; 
     $title = "Admission Fee Payment (Advance)";
 } 
-// 2. Check OUTDOOR
+
 else if (!empty($temp_app)) {
     $adm_id = 0; 
     $amount = $temp_app['amount'];
@@ -23,7 +23,7 @@ else if (!empty($temp_app)) {
     $process_file = "book_appointment.php?payment_success=1&method=" . $method;
     $title = "Outdoor Consultation Payment";
 }
-// 3. Check DISCHARGE/PARTIAL
+
 else if (isset($_POST['pay_method'])) {
     $adm_id = $_POST['adm_id'];
     $amount = $_POST['total_amount'];

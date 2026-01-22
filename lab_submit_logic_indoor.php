@@ -7,7 +7,6 @@ if (isset($_POST['submit_report'])) {
     $findings = $conn->real_escape_string($_POST['findings']);
     $fees = (float)$_POST['fees'];
 
-    // Updating columns: result, test_fees, status
     $sql = "UPDATE lab_tests 
             SET result = '$findings', 
                 test_fees = '$fees', 
