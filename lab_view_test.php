@@ -16,7 +16,6 @@ if (!isset($_GET['id'])) {
 
 $test_id = (int)$_GET['id'];
 
-// IMPROVED QUERY: Using LEFT JOINs and selecting all columns from lab_tests
 $sql = "SELECT l.*, 
                p.name as patient_name, p.age, p.gender, 
                u.full_name as doctor_name 
@@ -36,7 +35,6 @@ if (!$res || $res->num_rows == 0) {
 
 $report = $res->fetch_assoc();
 
-
 $lab_result_data = "";
 if (!empty($report['test_result'])) {
     $lab_result_data = $report['test_result'];
@@ -49,13 +47,34 @@ if (!empty($report['test_result'])) {
 }
 ?>
 
+<style>
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        .card {
+            box-shadow: none !important;
+            border: none !important;
+        }
+        .container {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    }
+</style>
+
 <div class="container my-5">
     <div class="row justify-content-center">
         <div class="col-lg-8">
-            <div class="mb-4">
+            <div class="mb-4 d-flex justify-content-between no-print">
                 <a href="doctor_lab_notifications.php" class="btn btn-secondary shadow-sm">
                     <i class="fas fa-arrow-left"></i> Back to Notifications
                 </a>
+                <button type="button" class="btn btn-primary shadow-sm" onclick="window.print()">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
             </div>
 
             <div class="card shadow border-0">

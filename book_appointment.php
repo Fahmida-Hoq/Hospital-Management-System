@@ -24,8 +24,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_appointment'])
 
     if (!empty($doctor_id) && !empty($date) && !empty($time)) {
         
-    
-        $availability_sql = "SELECT schedule_id FROM doctor_schedules 
+        $availability_sql = "SELECT start_time, end_time FROM doctor_schedules 
                              WHERE doctor_id = ? AND day_of_week = ? AND status = 'Active'";
         $stmt_avail = $conn->prepare($availability_sql);
         $stmt_avail->bind_param("is", $doctor_id, $selected_day);
@@ -33,44 +32,47 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_appointment'])
         $res_avail = $stmt_avail->get_result();
 
         if ($res_avail->num_rows == 0) {
-          
             $message = "<div class='alert alert-warning fw-bold'>
                             <i class='fas fa-calendar-times'></i> SCHEDULE ERROR: 
                             This doctor is not available on {$selected_day}s. 
-                            Please choose another date or check their directory schedule.
                         </div>";
         } else {
-            
-            $check_sql = "SELECT appointment_id FROM appointments 
-                          WHERE doctor_id = ? 
-                          AND scheduled_time = ? 
-                          AND appointment_time = ? 
-                          AND status != 'cancelled'";
-            
-            $stmt_check = $conn->prepare($check_sql);
-            $stmt_check->bind_param("iss", $doctor_id, $date, $time);
-            $stmt_check->execute();
-            $result_check = $stmt_check->get_result();
-
-            if ($result_check->num_rows > 0) {
-                
-                $message = "<div class='alert alert-danger fw-bold'>
-                                <i class='fas fa-exclamation-circle'></i> TIME CONFLICT: 
-                                The doctor is already booked for " . date("h:i A", strtotime($time)) . ". 
-                                Please select a different time.
+            $schedule = $res_avail->fetch_assoc();
+            // CHECK TIME RANGE
+            if ($time < $schedule['start_time'] || $time > $schedule['end_time']) {
+                 $message = "<div class='alert alert-danger fw-bold'>
+                                <i class='fas fa-clock'></i> TIME ERROR: 
+                                Doctor is available from " . date("h:i A", strtotime($schedule['start_time'])) . " to " . date("h:i A", strtotime($schedule['end_time'])) . "
                             </div>";
             } else {
-           
-                $_SESSION['temp_appointment'] = [
-                    'doctor_id' => $doctor_id,
-                    'scheduled_time' => $date,
-                    'appointment_time' => $time,
-                    'amount' => $consultation_fee,
-                    'type' => 'OUTDOOR_CONSULTATION'
-                ];
+                $check_sql = "SELECT appointment_id FROM appointments 
+                              WHERE doctor_id = ? 
+                              AND scheduled_time = ? 
+                              AND appointment_time = ? 
+                              AND status != 'cancelled'";
+                
+                $stmt_check = $conn->prepare($check_sql);
+                $stmt_check->bind_param("iss", $doctor_id, $date, $time);
+                $stmt_check->execute();
+                $result_check = $stmt_check->get_result();
 
-                header("Location: payment_gateway.php");
-                exit();
+                if ($result_check->num_rows > 0) {
+                    $message = "<div class='alert alert-danger fw-bold'>
+                                    <i class='fas fa-exclamation-circle'></i> TIME CONFLICT: 
+                                    The doctor is already booked for " . date("h:i A", strtotime($time)) . ". 
+                                </div>";
+                } else {
+                    $_SESSION['temp_appointment'] = [
+                        'doctor_id' => $doctor_id,
+                        'scheduled_time' => $date,
+                        'appointment_time' => $time,
+                        'amount' => $consultation_fee,
+                        'type' => 'OUTDOOR_CONSULTATION'
+                    ];
+
+                    header("Location: payment_gateway.php");
+                    exit();
+                }
             }
         }
     } else {
@@ -84,8 +86,15 @@ if (isset($_GET['payment_success']) && isset($_SESSION['temp_appointment'])) {
 
     $conn->begin_transaction();
     try {
-        $sql = "INSERT INTO appointments (patient_id, doctor_id, scheduled_time, appointment_time, status) VALUES (?, ?, ?, ?, 'confirmed')";
+        // FIXED LINE 99: Added payment_status to handle the "Paid" requirement
+        $sql = "INSERT INTO appointments (patient_id, doctor_id, scheduled_time, appointment_time, status, payment_status) VALUES (?, ?, ?, ?, 'confirmed', 'Paid')";
         $stmt = $conn->prepare($sql);
+        
+        // Safety check to prevent Fatal Error
+        if (!$stmt) {
+            throw new Exception("SQL Prepare Failed: " . $conn->error);
+        }
+
         $stmt->bind_param("iiss", $patient_id, $data['doctor_id'], $data['scheduled_time'], $data['appointment_time']);
         $stmt->execute();
 
@@ -98,6 +107,11 @@ if (isset($_GET['payment_success']) && isset($_SESSION['temp_appointment'])) {
         $bill_desc = "Consultation Fee (Paid) - " . $doctor_name;
         $bill_sql = "INSERT INTO billing (patient_id, description, amount, status, bill_type, payment_method, billing_date) VALUES (?, ?, ?, 'Paid', 'Outdoor', ?, CURDATE())";
         $b_stmt = $conn->prepare($bill_sql);
+        
+        if (!$b_stmt) {
+            throw new Exception("Billing SQL Failed: " . $conn->error);
+        }
+
         $b_stmt->bind_param("isds", $patient_id, $bill_desc, $data['amount'], $pay_method);
         $b_stmt->execute();
 

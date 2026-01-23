@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Full Name</label>
                                 <input name="name" class="form-control" placeholder="Enter full name" required value="<?=htmlspecialchars($_POST['name'] ?? '')?>">
-                            </div>
+                    </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Email Address</label>
                                 <input type="email" name="email" class="form-control" placeholder="example@mail.com" required value="<?=htmlspecialchars($_POST['email'] ?? '')?>">
@@ -158,6 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <button class="btn btn-primary btn-lg shadow">Complete Registration</button>
                             <p class="text-center mt-3">Already have an account? <a href="login.php">Login here</a></p>
                         </div>
+                       
                     </form>
                 </div>
             </div>

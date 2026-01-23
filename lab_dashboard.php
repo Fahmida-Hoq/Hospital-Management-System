@@ -46,46 +46,32 @@ $completed = $completed_res ? $completed_res->fetch_row()[0] : 0;
     </div>
 
     <div class="row g-4 mb-5">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm bg-warning text-dark p-3">
-                <h5>Pending Tests</h5>
-                <div class="display-5 fw-bold"><?= (int)$pending ?></div>
-                <a href="lab_manage_tests.php?status=pending" class="text-dark small">View Details →</a>
-            </div>
-        </div>
-
-
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm bg-success text-white p-3">
-                <h5>Completed</h5>
-                <div class="display-5 fw-bold"><?= (int)$completed ?></div>
-                <a href="lab_manage_tests.php?status=completed" class="text-white small">View Details →</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-    <div class="card bg-primary text-white mb-4">
-        <div class="card-body">
+     <div class="col-md-4">
+        <div class="card bg-light text-dark mb-4">
+          <div class="card-body">
             <h5>Indoor Lab Requests</h5>
             <p>Handle tests for admitted patients.</p>
-            <a href="lab_manage_indoor.php" class="btn btn-light btn-sm">Open Indoor Queue</a>
+            <a href="lab_manage_indoor.php" class="btn btn-primary btn-sm">Open Indoor Queue</a>
+           </div>
         </div>
-    </div>
+      </div>
 </div>
-
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-white fw-bold">Lab Operations</div>
-        <div class="card-body">
-            <div class="row text-center">
-                <div class="col-md-3">
+   <div class="row g-4 mb-5">
+        <div class="col-md-4">
+             <div class="card bg-light text-primary mb-4">
+                 <div class="card bg-white text-dark fw-bold">Lab Operations
+                <div class="card-body">
                     <a href="lab_manage_tests.php" class="btn btn-outline-primary w-100 py-3">
                         <i class="bi bi-list-check d-block fs-3"></i>
                         All Test Requests
                     </a>
+</div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+
 
 <?php include 'includes/footer.php'; ?>

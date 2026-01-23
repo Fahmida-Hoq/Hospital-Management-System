@@ -18,6 +18,7 @@ $result = $conn->query($sql);
                 <th>Test</th>
                 <th>Status</th>
                 <th>Action</th>
+                
             </tr>
         </thead>
         <tbody>
@@ -33,6 +34,7 @@ $result = $conn->query($sql);
                         <span class="text-success">Done</span>
                     <?php endif; ?>
                 </td>
+                
             </tr>
 
             <div class="modal fade" id="report<?= $row['test_id'] ?>" tabindex="-1">
@@ -57,6 +59,16 @@ $result = $conn->query($sql);
                                     <input type="number" name="billing_amount" class="form-control" placeholder="500.00" required>
                                 </div>
                             </div>
+                           
+
+<div class="mb-3">
+    <label class="form-label">Payment Method:</label>
+    <select name="payment_method" class="form-select" required>
+        <option value="Cash">Cash</option>
+        <option value="bKash">bKash</option>
+        <option value="Card">Credit/Debit Card</option>
+    </select>
+                    </div>
                             <div class="modal-footer">
                                 <button type="submit" name="submit_report" class="btn btn-success w-100">SUBMIT AND BILL</button>
                             </div>
