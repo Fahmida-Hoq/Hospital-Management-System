@@ -88,24 +88,8 @@ if ($stmt) {
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-bg-success shadow-sm border-0">
-                <div class="card-body">
-                    <p class="mb-1">Indoor Patients</p>
-                    <h3 class="mb-0"><?= $indoor_patients ?></h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-bg-info shadow-sm border-0 text-white">
-                <div class="card-body">
-                    <p class="mb-1">Outdoor Patients</p>
-                    <h3 class="mb-0"><?= $outdoor_patients ?></h3>
-                </div>
-            </div>
-        </div>
-    </div>
-
+       
+       
     <div class="row g-3 mb-4">
         <div class="col-md-3"><a href="doctor_appointments.php" class="btn btn-outline-primary w-100 py-2">My Appointments</a></div>
 
@@ -119,7 +103,7 @@ if ($stmt) {
         <?php 
            $my_indoor = $conn->query("SELECT COUNT(*) FROM admissions WHERE status='Admitted' AND doctor_id='".$_SESSION['user_id']."'")->fetch_row()[0];
         ?>
-        <div class="display-6 fw-bold"><?= $my_indoor ?> Patients</div>
+       
         <a href="doctor_indoor_patients.php" class="text-white small mt-2 d-block">Go to Ward →</a>
     </div>
 </div>

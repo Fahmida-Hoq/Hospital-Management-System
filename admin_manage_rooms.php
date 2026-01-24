@@ -28,7 +28,7 @@ $rooms = $conn->query($query);
     <div class="row g-3">
         <?php if ($rooms && $rooms->num_rows > 0): ?>
             <?php while($row = $rooms->fetch_assoc()): 
-                // In your DB, status is 'Available' or 'Occupied'
+                
                 $is_occupied = (strtolower($row['bed_status']) == 'occupied');
             ?>
             <div class="col-md-3">

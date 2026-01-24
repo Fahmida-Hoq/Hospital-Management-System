@@ -73,7 +73,7 @@ $doctors = $stmt->get_result();
                         </div>
                         
                         <a href="login.php?doctor_id=<?php echo $doctor['doctor_id']; ?>" 
-                           class="btn btn-success mt-3">Check Availability & Book</a>
+                           class="btn btn-success mt-3">Book Now</a>
                     </div>
                 </div>
             </div>

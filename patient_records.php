@@ -26,7 +26,7 @@ $admission_reg_fee = (float)($info['admission_fee'] ?? 0);
 $total_charges = 0;
 $total_settled = 0;
 
-// 1. Core Indoor Charges
+
 if ($adm_id > 0) {
     $admission_date = $info['admission_date'];
     $days = (new DateTime($admission_date))->diff(new DateTime(date('Y-m-d')))->days ?: 1;
@@ -37,7 +37,7 @@ if ($adm_id > 0) {
     
     $total_charges += ($bed_fee + $standard_doc_fee + $admission_reg_fee);
 
-    // 2. Extra Doctor Consultations
+   
     $appt_query = "SELECT COUNT(*) as extra_visits FROM appointments 
                    WHERE patient_id = $patient_id AND scheduled_time >= '$admission_date' AND status = 'Confirmed'";
     $extra_count = (int)$conn->query($appt_query)->fetch_assoc()['extra_visits'];
@@ -45,19 +45,17 @@ if ($adm_id > 0) {
     $total_charges += $extra_fees;
 }
 
-// 3. Lab Charges & Counter Payments
 $lab_query = "SELECT test_fees, payment_status FROM lab_tests WHERE patient_id = $patient_id AND status = 'completed'";
 $lab_res = $conn->query($lab_query);
 while($lab = $lab_res->fetch_assoc()) {
     $fee = (float)$lab['test_fees'];
     $total_charges += $fee;
-    // CRITICAL: If paid at lab counter, mark as settled immediately
+
     if($lab['payment_status'] == 'paid' || $lab['payment_status'] == 'Paid') {
         $total_settled += $fee;
     }
 }
 
-// 4. Other Billing Settlements (Admin-entered payments)
 $pay_query = "SELECT SUM(amount) as total_paid FROM billing WHERE patient_id = $patient_id AND status = 'paid'";
 $total_settled += (float)($conn->query($pay_query)->fetch_assoc()['total_paid'] ?? 0);
 

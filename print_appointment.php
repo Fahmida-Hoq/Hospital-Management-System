@@ -8,7 +8,7 @@ if (!isset($_GET['id'])) {
 
 $appointment_id = (int)$_GET['id'];
 
-// Updated SQL: Joining tables to ensure all doctor and patient info is available
+
 $sql = "SELECT a.*, p.name as patient_name, u.full_name as doctor_name, d.specialization 
         FROM appointments a
         JOIN patients p ON a.patient_id = p.patient_id
@@ -22,13 +22,10 @@ if (!$res || $res->num_rows == 0) {
 }
 $app = $res->fetch_assoc();
 
-/** * FIXED: Handle the 'payment_status' error.
- * If the column exists in the DB, we use it. 
- * Otherwise, we default to 'Paid' since payments are made during booking.
- */
+
 $payment_status = isset($app['payment_status']) ? $app['payment_status'] : 'Paid';
 
-// If it's a confirmed appointment, it should be marked as Paid
+
 if ($app['status'] == 'Confirmed' || strtolower($payment_status) == 'paid') {
     $display_status = "PAID";
     $text_class = "text-success";

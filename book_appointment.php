@@ -38,41 +38,60 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_appointment'])
                         </div>";
         } else {
             $schedule = $res_avail->fetch_assoc();
-            // CHECK TIME RANGE
+            
             if ($time < $schedule['start_time'] || $time > $schedule['end_time']) {
                  $message = "<div class='alert alert-danger fw-bold'>
                                 <i class='fas fa-clock'></i> TIME ERROR: 
                                 Doctor is available from " . date("h:i A", strtotime($schedule['start_time'])) . " to " . date("h:i A", strtotime($schedule['end_time'])) . "
                             </div>";
             } else {
-                $check_sql = "SELECT appointment_id FROM appointments 
+                
+                $limit_sql = "SELECT COUNT(*) as current_total FROM appointments 
                               WHERE doctor_id = ? 
                               AND scheduled_time = ? 
-                              AND appointment_time = ? 
                               AND status != 'cancelled'";
-                
-                $stmt_check = $conn->prepare($check_sql);
-                $stmt_check->bind_param("iss", $doctor_id, $date, $time);
-                $stmt_check->execute();
-                $result_check = $stmt_check->get_result();
+                $stmt_limit = $conn->prepare($limit_sql);
+                $stmt_limit->bind_param("is", $doctor_id, $date);
+                $stmt_limit->execute();
+                $limit_res = $stmt_limit->get_result()->fetch_assoc();
 
-                if ($result_check->num_rows > 0) {
-                    $message = "<div class='alert alert-danger fw-bold'>
-                                    <i class='fas fa-exclamation-circle'></i> TIME CONFLICT: 
-                                    The doctor is already booked for " . date("h:i A", strtotime($time)) . ". 
+                if ($limit_res['current_total'] >= 30) {
+                    $message = "<div class='alert alert-warning fw-bold'>
+                                    <i class='fas fa-users'></i> DAILY LIMIT REACHED: 
+                                    This doctor is fully booked (30/30) for this date. Please select another day.
                                 </div>";
                 } else {
-                    $_SESSION['temp_appointment'] = [
-                        'doctor_id' => $doctor_id,
-                        'scheduled_time' => $date,
-                        'appointment_time' => $time,
-                        'amount' => $consultation_fee,
-                        'type' => 'OUTDOOR_CONSULTATION'
-                    ];
+               
 
-                    header("Location: payment_gateway.php");
-                    exit();
-                }
+                    $check_sql = "SELECT appointment_id FROM appointments 
+                                  WHERE doctor_id = ? 
+                                  AND scheduled_time = ? 
+                                  AND appointment_time = ? 
+                                  AND status != 'cancelled'";
+                    
+                    $stmt_check = $conn->prepare($check_sql);
+                    $stmt_check->bind_param("iss", $doctor_id, $date, $time);
+                    $stmt_check->execute();
+                    $result_check = $stmt_check->get_result();
+
+                    if ($result_check->num_rows > 0) {
+                        $message = "<div class='alert alert-danger fw-bold'>
+                                        <i class='fas fa-exclamation-circle'></i> TIME CONFLICT: 
+                                        The doctor is already booked for " . date("h:i A", strtotime($time)) . ". 
+                                    </div>";
+                    } else {
+                        $_SESSION['temp_appointment'] = [
+                            'doctor_id' => $doctor_id,
+                            'scheduled_time' => $date,
+                            'appointment_time' => $time,
+                            'amount' => $consultation_fee,
+                            'type' => 'OUTDOOR_CONSULTATION'
+                        ];
+
+                        header("Location: payment_gateway.php");
+                        exit();
+                    }
+                } // End of Limit Else
             }
         }
     } else {
@@ -80,17 +99,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_appointment'])
     }
 }
 
+
 if (isset($_GET['payment_success']) && isset($_SESSION['temp_appointment'])) {
     $data = $_SESSION['temp_appointment'];
     $pay_method = $_GET['method'] ?? 'Online';
 
     $conn->begin_transaction();
     try {
-        // FIXED LINE 99: Added payment_status to handle the "Paid" requirement
+        
         $sql = "INSERT INTO appointments (patient_id, doctor_id, scheduled_time, appointment_time, status, payment_status) VALUES (?, ?, ?, ?, 'confirmed', 'Paid')";
         $stmt = $conn->prepare($sql);
         
-        // Safety check to prevent Fatal Error
         if (!$stmt) {
             throw new Exception("SQL Prepare Failed: " . $conn->error);
         }
