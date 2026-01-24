@@ -46,6 +46,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_appointment'])
                             </div>";
             } else {
                 
+            
+                $doc_limit_sql = "SELECT daily_limit FROM doctors WHERE doctor_id = ?";
+                $stmt_doc_limit = $conn->prepare($doc_limit_sql);
+                $stmt_doc_limit->bind_param("i", $doctor_id);
+                $stmt_doc_limit->execute();
+                $doc_limit_res = $stmt_doc_limit->get_result()->fetch_assoc();
+                
+                
+                $max_patients = $doc_limit_res['daily_limit'] ?? 30;
+
                 $limit_sql = "SELECT COUNT(*) as current_total FROM appointments 
                               WHERE doctor_id = ? 
                               AND scheduled_time = ? 
@@ -55,10 +65,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_appointment'])
                 $stmt_limit->execute();
                 $limit_res = $stmt_limit->get_result()->fetch_assoc();
 
-                if ($limit_res['current_total'] >= 30) {
+                if ($limit_res['current_total'] >= $max_patients) {
                     $message = "<div class='alert alert-warning fw-bold'>
                                     <i class='fas fa-users'></i> DAILY LIMIT REACHED: 
-                                    This doctor is fully booked (30/30) for this date. Please select another day.
+                                    This doctor has reached their limit of {$max_patients} patients for this date.
                                 </div>";
                 } else {
                
@@ -91,7 +101,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_appointment'])
                         header("Location: payment_gateway.php");
                         exit();
                     }
-                } // End of Limit Else
+                } 
             }
         }
     } else {
